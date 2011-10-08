@@ -1,20 +1,23 @@
 #!/usr/bin/perl -w
-# Version 0.3
+# Version 0.5
 use XML::Smart;
 use POSIX qw(strftime);
 use File::Basename;
 use Switch 'Perl6';
 
 my $debug = 1;
+my $doing_existing = 0;
 
 my $filename = $ARGV[0];
 my $nowString;
 my $projectTemplateFilename;
 my $projectFilename;
+my $projectFilePath;
+my $projectName;
 my $AUP;
 my $recordingsDirectoryName = "service_recordings";
 my $recordingsDirectory;
-my $todaysDirectory;
+my $projectDirectory;
 my $wavOutputDirectoryName = "wav";
 my $wavDirectory;
 my $mp3OutputDirectoryName = "mp3";
@@ -22,6 +25,13 @@ my $mp3Directory;
 my $worshipServiceSuffix = "_service";
 my $audacityProjectFilename = "_audacity_project";
 my $wavFilenamePrefix;
+my $pathToFfMpeg;
+my $newAlbumString;
+my $mp3GenreString;
+my $mp3YearString;
+my $mp3ArtistNameString;
+my $pathToCdBurnerXp;
+
 #my $machine ="chippy";
 #my $machine ="multimedia";
 
@@ -31,21 +41,20 @@ sub checkDirectory {
         if (! -e $dtc) {
                 mkdir($dtc) or die "Can't create dtc:$!\n";
         }
+        print "$dtc\n" if $debug>3;
 }
 
 sub loadConfig {
-        #Generate a date string
-        $nowString = strftime "%Y-%m-%d", localtime;
-        print "today: $nowString\n" if $debug;
-        
         # Figure out which machine we're on
         chomp(my $hostname = `hostname`);
-        print "hostname: $hostname\n" if $debug;
+        print "hostname: $hostname\n" if $debug > 1;
+        $pathToFfMpeg = "C:/Program Files/Audacity 1.3.8 Beta (Unicode)/ffmpeg.exe";
+        $pathToAudacity = "C:/Program Files/Audacity 1.3 Beta (Unicode)/audacity.exe";
+        $pathToCdBurnerXp = "C:/Program Files/CDBurnerXP/cdbxpcmd.exe";
 
         given ($hostname) {
                 when "chippy"       {
                         $baseDirectory = "D:/Users/peter/Documents/Audacity";
-                        $pathToAudacity = "C:/Program Files/Audacity 1.3 Beta (Unicode)/audacity.exe";
                         }
                 # wav and mp3 destinations: D:\users\Helix Multimedia\service recordings\service_2009-07-19
                 # aup project data: D:\users\Helix Multimedia\service recordings\2009-07-19_NRUC Worship_Service_data
@@ -53,34 +62,41 @@ sub loadConfig {
                 # CDBurnerXp: C:\Program Files\CDBurnerXP
                 # Audacity: C:\Program Files\Audacity 1.3 Beta (Unicode)
                 when "multimedia" {
-                        $baseDirectory = "D:/users/Helix Multimedia/service recordings";
-                        $pathToAudacity = "C:/Program Files/Audacity 1.3 Beta (Unicode)/audacity.exe";
+                        $baseDirectory = "D:/users/Helix Multimedia";
                         }
                 else { die "unknown host: $hostname"};
         }
-        print "basedirectory: $baseDirectory\n" if $debug;
+        print "basedirectory: $baseDirectory\n" if $debug>1;
         
         # Now build the other useful path strings
         # Expected path for multimedia PC at NRUC shown in comments
         
-        # D:/users/Helix Multimedia/service_recordings
-        checkDirectory($recordingsDirectory = "$baseDirectory/$recordingsDirectoryName");
         # D:/users/Helix Multimedia/service_recordings/2009-07-19_service/
-        checkDirectory($todaysDirectory = "$recordingsDirectory/$nowString$worshipServiceSuffix");
+        checkDirectory($projectDirectory = "$baseDirectory/$recordingsDirectoryName/$projectName");
+        print "projectDirectory: $projectDirectory\n" if $debug>1;
         # D:/users/Helix Multimedia/service_recordings/2009-07-19_service/wav
-        checkDirectory($wavDirectory = "$todaysDirectory/$wavOutputDirectoryName");
+        checkDirectory($wavDirectory = "$projectDirectory/$wavOutputDirectoryName");
+        print "wavDirectory: $wavDirectory\n" if $debug>1;
         # D:/users/Helix Multimedia/service_recordings/2009-07-19_service/mp3
-        checkDirectory($mp3Directory = "$todaysDirectory/$mp3OutputDirectoryName");
+        checkDirectory($mp3Directory = "$projectDirectory/$mp3OutputDirectoryName");
+        print "mp3Directory: $mp3Directory\n" if $debug>1;
         # D:/users/Helix Multimedia/service_recordings/2009-07-19_service/2009-07-19_audacity_project.aup
-        $projectFilename = "$todaysDirectory/$nowString$audacityProjectFilename.aup";
+        $projectFilePath = "$projectDirectory/$projectName.aup";
+        print "projectFilePath: $projectFilePath\n" if $debug>1;
         
         # Prefix for all wav files
-        $wavFilenamePrefix = "$nowString$worshipServiceSuffix";
-        
+        $wavFilenamePrefix = "$projectName";
+
         # Locate template file
         # D:/users/Helix Multimedia/service_recordings/template.aup
-        $projectTemplateFilename = "$recordingsDirectory/template.aup";
+        $projectTemplateFilename = "$baseDirectory/$recordingsDirectoryName/template.aup";
         -f $projectTemplateFilename || die "can't find template file: $projectTemplateFilename";
+        
+        # Create ALBUM text for the MP3 tags section
+	$newAlbumString = "NRUC 9:30am service $nowString";
+        $mp3GenreString = "Religious";
+        $mp3YearString = strftime "%Y", localtime;
+        $mp3ArtistNameString = "North Ringwood Uniting Church";
 }
 sub promptUser {
    local($promptString,$defaultValue) = @_;
@@ -99,15 +115,13 @@ sub promptUser {
    }
 }
 
-sub makeNewProject()
+sub makeNewProject
 {
 	##############################################
 	# Create audacity project file from template
 	# Set meta data (tags) for date etc
 	##############################################
 
-	# Create ALBUM text for the MP3 tags section
-	$newAlbumString = "NRUC 9:30am service $nowString";
 	#Create a filename for the new project
 	#$projectFilename = $nowString."_service.aup";
 	print "Creating new project file '$projectFilename' from '$projectTemplateFilename'\n";
@@ -119,22 +133,54 @@ sub makeNewProject()
 	$TEMPLATE->{project}{tags}{tag}('name','eq','ALBUM'){'value'} = $newAlbumString;
 
 	# Save to a new project file
-	$TEMPLATE->save($projectFilename);
+	$TEMPLATE->save($projectDirectory/$projectFilename);
 }
 
-sub runAudacity()
+sub runAudacity
 {
 	##############################################
 	# Launch Audacity
 	# Expect user to export to wav files as normal
 	##############################################
-	print "Running audacity with $projectFilename ... ";
-	@args = ("audacity.exe", "$projectFilename");
+        -f $projectFilePath || die "Can't find $projectFilePath\n";
+        # convert to backslash paths for windows
+        my $runPath = $projectFilePath;
+        $runPath =~ s!/!\\!g;
+	print "Running audacity with $runPath ... " if $debug>1;
+	@args = ("$pathToAudacity", "$runPath");
 	system(@args) == 0 or die "system @args failed: $?";
-	print "finished\n";
+	print "finished\n" if $debug>1;
 }
 
-sub checkTracks()
+sub runFfMpeg
+{
+        my $trackTitle = shift;
+        my $trackNumber = shift;
+        my $wav = shift;
+        my $mp3 = shift;
+	##############################################
+	# Launch Audacity
+	# Expect user to export to wav files as normal
+	##############################################
+        #-f $projectFilePath || die "Can't find $projectFilePath\n";
+        # convert to backslash paths for windows
+        #$wav =~ s!/!\\!g;
+        #$mp3 =~ s!/!\\!g;
+	@args = ("$pathToFfMpeg","-y",
+                 "-i", $wav,
+                 "-album", $newAlbumString,
+                 "-year", $mp3YearString,
+                 "-title",  $trackTitle,
+                 "-track", $trackNumber,
+                 "-author", $mp3ArtistNameString,
+                 #"-metadata", "Genre=$mp3GenreString",
+                 $mp3);
+	print "Running: @args" if $debug > 1;
+	system(@args) == 0 or die "system @args failed: $!";
+	print "finished\n" if $debug > 1;
+}
+
+sub checkTracks
 {
 	my $errors_found = 0;
 	##############################################
@@ -143,9 +189,9 @@ sub checkTracks()
 	# check all wav files exist
 	##############################################
 	#my $wavsDirectory = fileparse($projectFilename, ".aup");
-	print "looking in $wavDirectory for wav files\n";
+	print "Checking Tracks: looking in $wavDirectory for wav files\n" if $debug>1;
 	my $numlabels = $AUP->{project}{labeltrack}{numlabels};
-	print "found $numlabels tracks\n";
+	print "found $numlabels tracks\n" if $debug>1;
 	$errors_found++ unless $numlabels;
 	my @llist = @{$AUP->{project}{labeltrack}{label}};
 	foreach my $track (@llist) {
@@ -153,11 +199,11 @@ sub checkTracks()
 		my $ti = $track->i()+1;
 		$t = $track->{t};
 		$t1 = $track->{t1};
-		print "track $ti: $title ($t:$t1)\n";
+		print "checking track $ti: $title ($t:$t1)\n" if $debug>1;
                 if ($t1 != $t) {
-                        warn "label not zero length: $track->{title} : $track->{t} : $track->{t1}\n";
+                        warn "label not zero length: $track->{title} : $track->{t} : $track->{t1}\n" if $debug>0;
                         # Fix it
-                        print "fixing...\n";
+                        print "fixing...\n" if $debug>0;
                         $track{t1} = $track{t};
                 }
 		# Check the wav file exists
@@ -168,24 +214,26 @@ sub checkTracks()
 			$tr = "missing";
 			$errors_found++;
 		}
-		print "checking for $wavfile: $tr\n";
+		print "checking for $wavfile: $tr\n" if $debug>0;
 #		`lame $wavfile $wavsDirectory/$wavsDirectory-$ti.mp3`; 
 #		`"c:/program files/audacity/ffmpeg.exe" $wavfile $wavDirectory/$wavFilenamePrefix-$ti.mp3` if(-f $wavfile);
 	}
 	# Save to a new project file
-	$AUP->save($projectFilename);
+	$AUP->save($projectFilePath);
         print "checkTracks: Found $errors_found errors: " if($errors_found);
+	print "Finished Checking Tracks\n" if $debug>1;
         $errors_found;
 }
 
-sub makeMp3s()
+sub makeMp3s
 {
 	##############################################
 	# Create MP3 files from the wavs.
 	##############################################
 	# Open today's aup file
+        print "Making MP3s"  if $debug>1;
 	#my $wavsDirectory = fileparse($projectFilename, ".aup");
-	print "looking in $wavDirectory for wav files\n";
+	print "looking in $wavDirectory for wav files\n" if $debug>1;
 	my $numlabels = $AUP->{project}{labeltrack}{numlabels};
 	my @llist = @{$AUP->{project}{labeltrack}{label}};
 	foreach my $track (@llist) {
@@ -196,17 +244,53 @@ sub makeMp3s()
 		# Check the wav file exists
 		my $wavfile = "$wavDirectory/$wavFilenamePrefix-$ti.wav";
 		if(-r $wavfile){
-			`"c:/program files/audacity/ffmpeg.exe" $wavfile $wavDirectory/$wavFilenamePrefix-$ti.mp3`;
+                        runFfMpeg($title, $ti, $wavfile, "$mp3Directory/$title.mp3");
+			#`"c:/program files/audacity/ffmpeg.exe" $wavfile $mp3Directory/$title.mp3`;
 		}
 	}
+        print "Finished Making MP3s"  if $debug>1;
 }
 
+sub BurnCDs
+{
+	##############################################
+	# Burn CD using the wav files and CDBurnerXP
+	##############################################
+        print "Burning CDs"  if $debug>1;
+	@args = ("$pathToCdBurnerXp",
+                 "-dao", "-close", "-eject",
+                 "-folder:$wavDirectory",
+                 "-name:", $mp3ArtistNameString,
+                 #"-metadata", "Genre=$mp3GenreString",
+                 $mp3);
+	print "Running: @args" if $debug > 1;
+	system(@args) == 0 or die "system @args failed: $!";
+        print "Finished Burning CDs"  if $debug>1;
+}
+
+##############################
+# main Program Start
+##############################
+
+#Generate a date string
+$nowString = strftime "%Y-%m-%d", localtime;
+print "today: $nowString\n" if $debug>2;
+
+# Set $projectFilename if given on command line otherwise generate from today's date
+if ($filename) {
+        $doing_existing = 1;
+        $projectFilename = $filename;
+        $projectName = fileparse($projectFilename, ".aup");
+} else {
+        $projectName = "$nowString$audacityProjectFilename";
+        $projectFilename = "$projectName.aup";
+}
+
+print "projectName: $projectName\n" if $debug>1;
+print "projectFilename: $projectFilename\n" if $debug>1;
 
 # Setup directories and load any config from ini file
-loadConfig($projectFilename);
-
-# Set $projectflename if given on command line
-$projectFilename = $filename if $filename;
+loadConfig($projectName);
 
 # Create a new projectfile if $filename not specified on command line
 makeNewProject unless $filename;
@@ -215,16 +299,16 @@ makeNewProject unless $filename;
 runAudacity;
 
 # Open today's aup file
-print "checking project file: $projectFilename\n";
-die "failed to open Audacity project file: $projectFilename\n" unless -r $projectFilename;
+print "checking project file: $projectFilePath\n" if $debug>0;
+die "failed to open Audacity project file: $projectFilePath\n" unless -r $projectFilePath;
 
-$AUP = XML::Smart->new($projectFilename);
+$AUP = XML::Smart->new($projectFilePath);
 
 # Save to a backup project file unless one already exists
-$AUP->save($projectFilename . ".bak") unless (-f $projectFilename . ".bak");
+$AUP->save($projectFilePath . ".bak") unless (-f $projectFilePath . ".bak");
 
 while(checkTracks &&
-   promptUser ("found missing wav files or incorrect label lengths - re-run Audacity to fix?","Yes") =~ /^Y/i) {
+   promptUser ("Found missing wav files or incorrect label lengths.\nRe-run Audacity to fix?","Yes") =~ /^Y/i) {
         runAudacity;
 }
 
