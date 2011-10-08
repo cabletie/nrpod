@@ -15,6 +15,7 @@ use File::Basename;
 use Switch;
 use Getopt::Long;
 use Pod::Usage;
+use Data::Dumper;
 
 my $debug = 0;
 
@@ -186,7 +187,7 @@ sub convertWav2Mp3 {
 	my $numberOfTracks = shift;
         my $wav = shift;
         my $mp3 = shift;
-	@args = ("$pathToLame", $debug>1?"--quiet":"",
+	@args = ("$pathToLame", $debug<2?"--quiet":"",
                  "--tl", "$newAlbumString",
                  "--ty", $mp3YearString,
                  "--tt",  "$trackTitle",
@@ -228,6 +229,16 @@ sub checkTracks {
 	##############################################
 	#my $wavsDirectory = fileparse($projectFilename, ".aup");
 	print "Checking that exported wav files match Tracks and there are no non-zero length labels\n" if $debug;
+	
+	# Open today's aup file
+	print "checking project file: $projectFilePath\n" if $debug>1;
+	die "failed to open Audacity project file: $projectFilePath\n" unless -r $projectFilePath;
+	
+	$AUP = XML::Smart->new($projectFilePath);
+	
+	# Save to a backup project file unless one already exists
+	$AUP->save($projectFilePath . ".bak") unless (-f $projectFilePath . ".bak");
+	
 	print "Looking in $wavDirectory for wav files\n" if $debug>2;
 	my $numlabels = $AUP->{project}{labeltrack}{numlabels};
 	print "found $numlabels tracks\n" if $debug>1;
@@ -243,14 +254,14 @@ sub checkTracks {
                         warn "label not zero length: $track->{title} : $track->{t} : $track->{t1}\n" if $debug;
                         # Fix it
                         print "fixing...\n" if $debug;
-			$AUP->{project}{labeltrack}{label}[$ti-1]->{t1} = $AUP->{project}{labeltrack}{label}[$ti-1]->{t};
+			# Modify the actual XML structure
+			$AUP->{project}{labeltrack}{label}[$ti-1]{t1} = $AUP->{project}{labeltrack}{label}[$ti-1]{t};
                         $track{t1} = $track{t};
 			$errors_found++;
                 }
 		# Check the wav file exists
 		my $tiString = sprintf("%02d", $ti);
 		my $wavfile = "$wavDirectory/".$tiString."-$title.wav";
-#		my $wavfile = "$wavDirectory/$wavFilenamePrefix-$ti.wav";
 		if(-r $wavfile){
 			$tr = "OK";
 		}else {
@@ -275,7 +286,6 @@ sub makeMp3s
 	##############################################
 	# Open today's aup file
         print "Making MP3s\n"  if $debug;
-	#my $wavsDirectory = fileparse($projectFilename, ".aup");
 	print "looking in $wavDirectory for wav files\n" if $debug>2;
 	my $numlabels = $AUP->{project}{labeltrack}{numlabels};
 	my @llist = @{$AUP->{project}{labeltrack}{label}};
@@ -291,7 +301,7 @@ sub makeMp3s
                         convertWav2Mp3($title, $ti, $numlabels, $wavfile, "$mp3Directory/".$tiString."-$title.mp3");
 		}
 	}
-        print "Finished Making $numlabels MP3s"  if $debug > 1;
+        print "Finished Making $numlabels MP3s\n"  if $debug > 1;
 }
 
 sub checkBlankMedia
@@ -417,14 +427,14 @@ makeNewProject unless $filename;
 # Run Audacity to capture recording
 runAudacity if $audacity;
 
-# Open today's aup file
-print "checking project file: $projectFilePath\n" if $debug>0;
-die "failed to open Audacity project file: $projectFilePath\n" unless -r $projectFilePath;
-
-$AUP = XML::Smart->new($projectFilePath);
-
-# Save to a backup project file unless one already exists
-$AUP->save($projectFilePath . ".bak") unless (-f $projectFilePath . ".bak");
+## Open today's aup file
+#print "checking project file: $projectFilePath\n" if $debug>0;
+#die "failed to open Audacity project file: $projectFilePath\n" unless -r $projectFilePath;
+#
+#$AUP = XML::Smart->new($projectFilePath);
+#
+## Save to a backup project file unless one already exists
+#$AUP->save($projectFilePath . ".bak") unless (-f $projectFilePath . ".bak");
 
 while(checkTracks) {
    my $r = promptUser ("Found missing wav files or incorrect label lengths.\nRe-run Audacity to re-export wav files?","Yes");
@@ -450,47 +460,12 @@ if($burn) {
 	}
 }
 exit;
-# Generate MP3 files using ffmpeg - DONE
+# Generate MP3 files - DONE
 # Export labels to CDBurnerXP project file
 # Run burner X2 discs
 # print labels
 # upload MP3s to FTP server/iTunes
 
-die "failed to open Audacity project file: file not found" unless -r $filename;
-
-## Create the object and load the file:
-my $XML = XML::Smart->new($filename) ;
-
-my $numlabels = $XML->{project}{labeltrack}{numlabels};
-my $i=0;
-my @llist = @{$XML->{project}{labeltrack}{label}};
-while ($i<$numlabels){
-	my $title = $XML->{project}{labeltrack}{label}[$i]{title};
-	$title = $title;
-	my $t = $XML->{project}{labeltrack}{label}[$i]{t};
-	$t = $t;
-	my $t1 = $XML->{project}{labeltrack}{label}[$i]{t1};
-	$t1 = $t1;
-
-	warn "label not zero length: $title : $t : $t1\n" if ($t1 != $t);
-	# Fix it
-	print "fixing...\n";
-	$llist[$i]{t1} = $llist[$i]{t};
-
-
-	print "$i: $XML->{project}{labeltrack}{label}[$i]{title}: $XML->{project}{labeltrack}{label}[$i]{t}\n";
-	$i++;
-}
-#print $XML->{project}{tags}{tag}[0]{name};
-#print $XML->{project}{tags}{tag}[1];
-#print $XML->{project}{tags}{tag}[2];
-my @tagslist = @{$XML->{project}{tags}{tag}};
-#my @tagslist = $XML->{project}{tags}{tag}('@');
-#@tagslist = @tagslist;
-print "numtags: $#tagslist\n";
-foreach my $tg (@tagslist) {
-	print "$tg->{name}: $tg->{value}\n";
-}
 
 __END__
 =head1 AUP
