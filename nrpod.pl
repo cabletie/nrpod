@@ -8,7 +8,6 @@ my $filename = $ARGV[0];
 my $nowString;
 my $projectTemplateFilename;
 my $projectFilename;
-my $AUP;
 
 sub promptUser {
    local($promptString,$defaultValue) = @_;
@@ -82,12 +81,11 @@ sub checkTracks()
 		$t = $track->{t};
 		$t1 = $track->{t1};
 		print "track $ti: $title ($t:$t1)\n";
-                if ($t1 != $t) {
-                        warn "label not zero length: $track->{title} : $track->{t} : $track->{t1}\n";
-                        # Fix it
-                        print "fixing...\n";
-                        $track{t1} = $track{t};
-                }
+		warn "label not zero length: $track->{title} : $track->{t} : $track->{t1}\n" if ($t1 != $t);
+		# Fix it
+		print "fixing...\n";
+		$track{t1} = $track{t};
+
 		# Check the wav file exists
 		my $wavfile = "$wavsDirectory/$wavsDirectory-$ti.wav";
 		if(-r $wavfile){
@@ -98,12 +96,10 @@ sub checkTracks()
 		}
 		print "checking for $wavfile: $tr\n";
 #		`lame $wavfile $wavsDirectory/$wavsDirectory-$ti.mp3`; 
-#		`"c:/program files/audacity/ffmpeg.exe" $wavfile $wavsDirectory/$wavsDirectory-$ti.mp3` if(-f $wavfile);
+		`"c:/program files/audacity/ffmpeg.exe" $wavfile $wavsDirectory/$wavsDirectory-$ti.mp3`;
 	}
 	# Save to a new project file
 	$AUP->save($projectFilename);
-        print "checkTracks: Found $errors_found errors: " if($errors_found);
-        $errors_found;
 }
 
 sub makeMp3s()
@@ -145,17 +141,13 @@ if(!$projectFilename) {
 print "checking project file: $projectFilename\n";
 die "failed to open Audacity project file: $projectFilename\n" unless -r $projectFilename;
 
-$AUP = XML::Smart->new($projectFilename);
+my $AUP = XML::Smart->new($projectFilename);
 
-# Save to a backup project file unless one already exists
-$AUP->save($projectFilename . ".bak") unless (-f $projectFilename . ".bak");
+# Save to a backup project file
+$AUP->save($projectFilename . ".bak");
 
-if(!checkTracks |
-   promptUser ("found missing wav files or incorrect label lengths - re-run Audacity to fix?","Yes") !~ /^Y/i) {
+if(!checkTracks) {
 	makeMp3s;
-} else {
-        print "you will have to re-run this script when done.";
-        exec "c:/program files/audacity/audacity.exe", "$projectFilename";
 }
 
 exit;
