@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-# Version 0.5
+# Version 0.6
 use XML::Smart;
 use POSIX qw(strftime);
 use File::Basename;
@@ -31,6 +31,9 @@ my $mp3GenreString;
 my $mp3YearString;
 my $mp3ArtistNameString;
 my $pathToCdBurnerXp;
+my $pathToCreateCD;
+my %drives;
+my %blanks;
 
 #my $machine ="chippy";
 #my $machine ="multimedia";
@@ -55,6 +58,7 @@ sub loadConfig {
         given ($hostname) {
                 when "chippy"       {
                         $baseDirectory = "D:/Users/peter/Documents/Audacity";
+                        $pathToCreateCD = "D:/Users/peter/Documents/bin/CreateCD.exe";
                         }
                 # wav and mp3 destinations: D:\users\Helix Multimedia\service recordings\service_2009-07-19
                 # aup project data: D:\users\Helix Multimedia\service recordings\2009-07-19_NRUC Worship_Service_data
@@ -63,6 +67,7 @@ sub loadConfig {
                 # Audacity: C:\Program Files\Audacity 1.3 Beta (Unicode)
                 when "multimedia" {
                         $baseDirectory = "D:/users/Helix Multimedia";
+                        $pathToCreateCD = "D:/users/Helix Multimedia/bin/CreateCD.exe";
                         }
                 else { die "unknown host: $hostname"};
         }
@@ -251,20 +256,57 @@ sub makeMp3s
         print "Finished Making MP3s"  if $debug>1;
 }
 
+sub checkBlankMedia
+{
+        # returns number of blank media found and stored in %blanks
+        print "Checking for drives to use\n" if $debug >1;
+        open (CDBXP, "\"$pathToCdBurnerXp\" --list-drives |") || die "can't fork $pathToCdBurnerXp: $!\n";
+        while (<CDBXP>) {
+                        print if $debug > 1;
+                        # scan lines for 0: LITE-ON DVDRW LH-20A1H (E:\)
+                        if (/(\d):\s.*\((.):\\\)/) {$drives{$2} = $1}
+                        my $driveLetter = $2;
+                }
+        close CDBXP || die "can't close $pathToCdBurnerXp: $!\n";
+#foreach my $drive (keys %drives) {
+#                print "$drive: $drives{$drive}\n";
+        open (CDBXP, "\"$pathToCreateCD\" -info -r:$driveLetter -nologo|") || die "can't fork $pathToCreateCD: $!\n";
+        while (<CDBXP>) {
+                        print if $debug > 2;
+                        next unless /Writable Blank/;
+                        $blanks{$driveLetter} = $&;
+        }
+        close CDBXP || die "can't close $pathToCreateCD: $!\n";
+#}
+        foreach (keys %blanks) {print "drive $_ has a blank CD in it\n";}
+        keys %blanks;
+}
+
 sub BurnCDs
 {
+        # PostScript-CDCover-1.0
+        # AudioCd-2.0
+        # Filesys-dfPortable-0.85
+        # MP3-CreateInlayCard-0.06
 	##############################################
 	# Burn CD using the wav files and CDBurnerXP
 	##############################################
-        print "Burning CDs"  if $debug>1;
-	@args = ("$pathToCdBurnerXp",
-                 "-dao", "-close", "-eject",
-                 "-folder:$wavDirectory",
-                 "-name:", $mp3ArtistNameString,
-                 #"-metadata", "Genre=$mp3GenreString",
-                 $mp3);
-	print "Running: @args" if $debug > 1;
-	system(@args) == 0 or die "system @args failed: $!";
+        while ((checkBlankMedia() < 1) || promptUser("No blank CDs found - insert balnk CD and [T]ry again or [S]kip burning?","T" =~ /^T$/i)) {
+                1;
+        }
+        foreach (keys %drives) {
+                print "Burning CD in drive $drives{$_}"  if $debug>1;
+                @args = ("$pathToCdBurnerXp",
+                         "--burn-audio", "-dao", "-close", "-eject",
+                         "-device:$_",
+                         "-folder:$wavDirectory",
+                         #"--name:\"$mp3ArtistNameString\"",
+                         #"-metadata", "Genre=$mp3GenreString",
+                         #$mp3,
+                         );
+                print "Running: @args" if $debug > 1;
+                #system(@args) == 0 or die "system @args failed: $!";
+        }
         print "Finished Burning CDs"  if $debug>1;
 }
 
