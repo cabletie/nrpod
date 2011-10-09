@@ -1,8 +1,7 @@
 #!/usr/bin/perl -w
-# Version 0.7
+
 # ToDo:
-# 1. Get cdbxpcmd.exe to sucessfully write mutiple tracks to CD (currenlty failes with pure virtual function call)
-# fix concatenating mp3s with ffmpeg
+# 1. fix concatenating mp3s with ffmpeg
 # 2. add GUI to allow selection of sermon tracks
 # 3. create selected tracks into one MP3 for sermon upload
 # 4. FTP sermon MP3 to server
@@ -360,9 +359,10 @@ sub BurnCD
 	##############################################
 	my $drive = shift;
         my $wavFolder = shift;
-	print "Burning drive $drive from $wavFolder\n" if $debug >1;
+	print "Burning drive $drive from $wavFolder\n" if $debug;
 	@args = ("drutil", "burn",
 		 "-audio",
+		 "-pregap",
 		 "-noverify",
                  "-eject",
                  "-erase", 
@@ -374,6 +374,36 @@ sub BurnCD
         print "Finished Burning CD"  if $debug >1;
 }
 
+sub expand {
+	my $range = shift;            
+	my @result; 
+	$range =~ s/[^\d\-\,]//gs; #remove extraneous characters
+	my @items = split(/,/,$range);    
+	foreach (@items){                 
+		m/^\d+$/ and push(@result,$_) and next;  my ($start,$finish) = split /-/;   push(@result,($start .. $finish)) if $start < $finish;                    
+	}                                 
+	return @result;                        
+}
+
+sub selectTracks {
+	my @result;
+	chomp (@filelist = <$wavDirectory/[0-9][0-9]-*.wav>);
+	do {
+		foreach $file (@filelist) {
+			print `basename "$file" .wav`;
+		}
+		@selected = expand(promptUser ("Enter track numbers to use for sermon podcast, separated by commas:","1-".eval($#filelist+1)));
+		print "You have selected the following:\n";
+		my $selection;
+		foreach $selection (@selected) {
+			print $selection;
+			print ": " . `basename "$filelist[$selection-1]" .wav`;
+			push @result, $filelist[$selection-1];
+		}
+	} until promptUser("Are these selections correct?","Yes") =~ /^Y/i;
+	return @result;
+}
+
 ##############################
 # main Program Start
 ##############################
@@ -382,7 +412,7 @@ sub BurnCD
 my $audacity = 1;
 my $help;
 my $man;
-my $burn;
+my $burn = 1;
 my $mp3 = 1;
 
 # Gather options and do help if needed or requested
@@ -442,7 +472,9 @@ while(checkTracks) {
    if($r =~ /^N/i) {print "Quitting\n"; exit;}
 }
 
-makeMp3s if $mp3;
+print join("\n",selectTracks);
+
+$mp3?makeMp3s:print "Not making MP3s\n";
 
 if($burn) {
 	my @blanks = checkBlankMedia;
@@ -458,7 +490,8 @@ if($burn) {
 	foreach my $drive (@blanks) {
 		BurnCD($drive, $wavDirectory);
 	}
-}
+} else { print "Not burning CDs\n";}
+
 exit;
 # Generate MP3 files - DONE
 # Export labels to CDBurnerXP project file
