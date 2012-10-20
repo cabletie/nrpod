@@ -70,6 +70,7 @@ cpan install Config::Simple
 cpan install Getopt::Long
 cpan install XML::Smart
 cpan install MP3::Tag
+cpan install Term::ProgressBar
 
 ========================================
 cdlabelgen

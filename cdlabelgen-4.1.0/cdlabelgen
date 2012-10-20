@@ -1,0 +1,937 @@
+#!/usr/bin/perl -w
+#
+# cdlabelgen - a program for making cd jewel box covers and traycards
+#
+# Author: Avinash Chopde <avinash@aczoom.com>  www.aczoom.com
+# -----------------------------------------------------------------------
+# Copyright (C) 1998, 1999 B. W. Fitzpatrick <fitz@red-bean.com>
+# Copyright (C) 2001-2005 Avinash Chopde <avinash@aczoom.com>  www.aczoom.com
+#
+# All rights reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, and/or sell copies of the Software, and to permit persons
+# to whom the Software is furnished to do so, provided that the above
+# copyright notice(s) and this permission notice appear in all copies of
+# the Software and that both the above copyright notice(s) and this
+# permission notice appear in supporting documentation.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+# OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+# OF THIRD PARTY RIGHTS. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+# HOLDERS INCLUDED IN THIS NOTICE BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL
+# INDIRECT OR CONSEQUENTIAL DAMAGES, OR ANY DAMAGES WHATSOEVER RESULTING
+# FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
+# NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION
+# WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+#
+# Except as contained in this notice, the name of a copyright holder
+# shall not be used in advertising or otherwise to promote the sale, use
+# or other dealings in this Software without prior written authorization
+# of the copyright holder.
+# ---------------------------------------------------------------------
+# Created: October, 1998 by B. W. Fitzpatrick <fitz@red-bean.com>
+# ---------------------------------------------------------------------
+# Apr 2001 Avinash Chopde <avinash@aczoom.com> http://www.aczoom.com/
+# Added -m option to support slim-cd cases 
+#          prints front cover insert - folding two page insert
+# Added -S 0 and -T 0 support, to print logo as background image instead
+# Minor changes for better handling of Windows NT.
+# Jul 2001 Avinash Chopde <avinash@aczoom.com> http://www.aczoom.com/
+# Added -p option to enable clipping of item text strings
+#   without this option, an item is fit to a column by shrinking it as needed
+#   Using -p requires the new template.ps that contains this feature.
+# Apr 2002 added CD envelope print option -M
+# Jul 2002 -S and -T options now take image offset values, -y for page offset
+# Aug 2002 Alessandro Dotti Contra <alessandro.dotti@libero.it> [2.5.0]
+#   - Added support for long options
+#   - Added options to choose colors for plaque background,
+#     category, subcategory and text
+# May 2003  From Mathias Herberts <Mathias.Herberts@iroise.net>
+#   - * Adds the option to output slim cd cover cases with the order of the
+#   - pages switched so the folding line lies on the outside
+#   - of a normal cd case.
+#   - * Included two logos for DivX and Ogg Vorbis, they come from:
+#   - Ogg Vorbis      http://w148.de/~mmartin/xifish/  [Marcel Martin]
+#   - DivX            http://www.divxnetworks.com/press/logos.php
+#       Updates from Peter Bieringer:
+#   - * Word-wrap fix
+# ---------------------------------------------------------------------
+# June 2003 Updates from Tony Mancill
+# 20021102 tony mancill <tmancill@debian.org>
+#   - added -C/--no-cover-plaque option
+#   - added -n/--number-in-set option
+# 20030601 tony mancill <tmancill@debian.org>
+#    - fold 2.6.0 upstream changes into Debian 2.5.0-2
+# ---------------------------------------------------------------------
+# Oct 2003 - Added support for DVD cases, inside inserts only for now [2.7.0]
+# Nov 2003 - Added support for DVD cases, outside covers [3.0.0]
+# ---------------------------------------------------------------------
+# Dec 2004  From: Stephan Grund <Stephan.Grund@isst.fraunhofer.de>
+#   - added support for rotating end-caps
+# ---------------------------------------------------------------------
+# Jan 2005  Added support for directly printing on a Compact Disc [3.5.0]
+#   - page-offset now takes both x,y values
+# ---------------------------------------------------------------------
+# Aug 2005 [3.6.0]
+#   --rows-columns= option to force #rows and columns, don't compute
+#       line_height or num_columns for list of items.
+# ---------------------------------------------------------------------
+# Aug 2007 [4.0.0]
+#   tray overlay EPS support - draw a EPS file over the background and items
+#   can be used to print barcode, use in conjunction with "barcodegen"
+# ---------------------------------------------------------------------
+# Oct 2008 [4.1.0]
+#   Create covers for double-sided DVD cases that hold 6 DVDs.
+#   --double-case option now available, uses wider spine section.
+#   Only double-width DVD cases are supported, double-width CD cases are
+#   not supported.
+#   Therefore, using --double-case also implies the --create-dvd-outside
+#   option.
+#   Thanks to Andras Salamon <asalamon@chello.hu> for this patch.
+# ---------------------------------------------------------------------
+
+use Socket qw(:DEFAULT :crlf);
+use strict;
+use Getopt::Long;
+# Configure the Getopt::Long module;
+$Getopt::Long::ignorecase = 0;
+
+# Prepare to slurp up the file
+my $template = 'template.ps';
+my $directory;
+
+# Modify this if you want to store your template somewhere else
+# Perhaps we can make this part of a conf file in the future?
+my @where_is_the_template;
+
+if ($^O !~ /^MSWin32/) { # not windows...
+  # Unix section -----------------------------------------------------
+  @where_is_the_template = (
+    '/usr/local/lib/cdlabelgen/',
+    '/usr/share/cdlabelgen/',
+    '/opt/lib/cdlabelgen/',
+    '/usr/local/share/cdlabelgen/',
+    '/etc/cdlabelgen/',
+    './postscript/',
+    );
+} else { # any MSWindows 32 platform...
+  # DOS section -----------------------------------------------------
+  @where_is_the_template = ('c:/cdlabelgen/', './postscript/');
+}
+
+my $found_template = '';
+foreach $directory (@where_is_the_template) {
+    if (-e ("$directory$template")) {
+        $template = "$directory$template";
+        $found_template = 1;
+        #Put the template dir at the front of the list for later
+        push @where_is_the_template,$directory;
+        last;
+    }
+}
+
+my (@items, @cover_items, @tray_items, $num_items_cover);
+my $eps_cover_file;
+my $eps_tray_card_file;
+my $eps_cover_bounds;
+my $eps_tray_card_bounds;
+my $eps_cover_scale;
+my $eps_tray_card_scale;
+my $date;
+my $print_to_file;
+my $default_eol = $/;
+my $show_tray_plaque = 1;
+my $show_cover_plaque = 1;
+my $default_bounds = "\n/bound1x 10 def\n/bound1y 10 def\n/bound2x 10 def\n/bound2y 10 def\n/scaleratio 1.0 def\n";
+my $normalcdcase = "true";
+my $slimcase = "false";
+my $doublecase = "false";
+my $envelopecdcase = "false";
+my $insidedvdcase = "false";
+my $outsidedvdcase = "false";
+my $cdlabel = "false";
+my $enable_item_scaling = "true";
+my $outside_foldout = "false";
+my $yoffset = "0.8"; # margin, default for letter sized paper
+my $xoffset = "1.0"; # margin, default for letter sized paper
+my $cover_image_xoffset = 0; # shift image logos by this much
+my $cover_image_yoffset = 0; # shift image logos by this much
+my $tray_image_xoffset = 0; # shift image logos by this much
+my $tray_image_yoffset = 0; # shift image logos by this much
+my $edge_line_width = 0.6; # edge line width in points
+my $rotate_endcaps = "false";
+my $count_rows = "0"; # default 0 implies calculate #rows in template.ps
+my $count_cols = "0"; # default 0 implies calculate #cols in template.ps
+my $eps_tray_overlay_bounds;
+my $eps_tray_overlay_file = '';
+my ($eps_tray_overlay_scale, $tray_overlay_image_xoffset, $tray_overlay_image_yoffset) = (1, 0, 0);
+######################################################################
+# Argument processing
+
+# mar 01 avinash: add defaults, -c or -s can be omitted
+# aug 02 alessandro: added support for long options
+
+my $CATEGORY = "";           # Category
+my $SUBCATEGORY = "";        # Subcatgory
+my $ITEMS;                   # List of item
+my $ITEMS_FILE;              # File with items to print
+my $COVER_ITEMS;             # Items to print on cover
+my $COVER_IMAGE;             # Image for cover (eps file)
+my $COVER_IMAGE_SCALERATIO;  # Scaleratio for cover image
+my $TRAY_IMAGE;              # Image for tray (eps file)
+my $TRAY_IMAGE_SCALERATIO;   # Scaleratio for tray image
+my $DATE;                    # Date
+my $NODATE;                  # Don't print date
+my $OUTPUT_FILE;             # PostScript code output file
+my $COVER_TEMPLATE;          # Template to use for PostScript code
+my $NO_TRAY_PLAQUE;          # Don't print plaque on tray
+my $NO_COVER_PLAQUE;         # Don't print plaque on the front cover
+my $TRAY_WORD_WRAP;          # Apply word wrap to tray's items
+my $HELP;                    # Print help
+my $CREATE_SLIM_CASE;        # Create a cover suitable for slim cases
+my $CREATE_DOUBLE_CASE;      # Create a cover suitable for double cases
+my $CREATE_ENVELOPE;         # Create an envelope
+my $CREATE_DVD_INSIDE;       # Create insert for inside of the DVD case
+my $CREATE_DVD_OUTSIDE;      # Create insert for outside of the DVD case
+my $CREATE_CDLABEL;          # Directly printing on the CD
+my $CLIP_ITEMS;              # Use fixed size font to print items
+my $PAGE_OFFSET;             # Put text <offset> inches from top of page
+my $LINE_WIDTH;              # Length of a text line
+my $PLAQUE_COLOR;            # <r,g,b> values for plaque color
+my $CATEGORY_COLOR;          # <r,g,b> values for category color
+my $SUBCATEGORY_COLOR;       # <r,g,b> values for subcategory color
+my $TEXT_COLOR;              # <r,g,b> values for text color
+my $OUTSIDE_FOLDOUT;         # Fold slim case/DVD inside insert fold line lie on the outside
+my $NUMBER_IN_SET;           # volume/member number in a set
+my $ROTATE_ENDCAPS;          # Rotate endcaps in jewelcase
+my $ROWS_COLUMNS;            # force list of items in these many rows/columns
+my $TRAY_OVERLAY;            # overlay this image on tray card
+my $TRAY_OVERLAY_SCALERATIO;
+
+unless ( GetOptions (
+      "c=s"                        => \$CATEGORY,
+      "category=s"                 => \$CATEGORY,
+      "s=s"                        => \$SUBCATEGORY,
+      "subcategory=s"              => \$SUBCATEGORY,
+      "i=s"                        => \$ITEMS,
+      "items=s"                    => \$ITEMS,
+      "f=s"                        => \$ITEMS_FILE,
+      "items-from-file=s"          => \$ITEMS_FILE,
+      "v=i"                        => \$COVER_ITEMS,
+      "cover-items=i"              => \$COVER_ITEMS,
+      "e=s"                        => \$COVER_IMAGE,
+      "cover-image=s"              => \$COVER_IMAGE,
+      "S=s"                        => \$COVER_IMAGE_SCALERATIO,
+      "cover-image-scaleratio=s"   => \$COVER_IMAGE_SCALERATIO,
+      "E=s"                        => \$TRAY_IMAGE,
+      "tray-image=s"               => \$TRAY_IMAGE,
+      "T=s"                        => \$TRAY_IMAGE_SCALERATIO,
+      "tray-image-scaleratio=s"    => \$TRAY_IMAGE_SCALERATIO,
+      "d=s"                        => \$DATE,
+      "date=s"                     => \$DATE,
+      "D"                          => \$NODATE,
+      "no-date"                    => \$NODATE,
+      "o=s"                        => \$OUTPUT_FILE,
+      "output-file=s"              => \$OUTPUT_FILE,
+      "t=s"                        => \$COVER_TEMPLATE,
+      "cover-template=s"           => \$COVER_TEMPLATE,
+      "b"                          => \$NO_TRAY_PLAQUE,
+      "no-tray-plaque"             => \$NO_TRAY_PLAQUE,
+      "C"                          => \$NO_COVER_PLAQUE,
+      "no-cover-plaque"            => \$NO_COVER_PLAQUE,
+      "w"                          => \$TRAY_WORD_WRAP,
+      "tray-word-wrap"             => \$TRAY_WORD_WRAP,
+      "h"                          => \$HELP,
+      "help"                       => \$HELP,
+      "m"                          => \$CREATE_SLIM_CASE,
+      "slim-case"                  => \$CREATE_SLIM_CASE,
+      "double-case"                => \$CREATE_DOUBLE_CASE,
+      "create-slim-cover"          => \$CREATE_SLIM_CASE, ##DEPRECATE-Dec04
+      "O"                          => \$OUTSIDE_FOLDOUT,
+      "outside-foldout"            => \$OUTSIDE_FOLDOUT,
+      "slim-cover-foldout"         => \$OUTSIDE_FOLDOUT, ##DEPRECATE
+      "M"                          => \$CREATE_ENVELOPE,
+      "create-envelope"            => \$CREATE_ENVELOPE,
+      "p"                          => \$CLIP_ITEMS,
+      "clip-items"                 => \$CLIP_ITEMS,
+      "y=f"                        => \$PAGE_OFFSET,
+      "page-offset=s"              => \$PAGE_OFFSET,
+      "l=f"                        => \$LINE_WIDTH,
+      "line-width=f"               => \$LINE_WIDTH,
+      "create-dvd-inside"          => \$CREATE_DVD_INSIDE,
+      "create-dvd-outside"         => \$CREATE_DVD_OUTSIDE,
+      "create-cdlabel"             => \$CREATE_CDLABEL,
+      "plaque-color=s"             => \$PLAQUE_COLOR,
+      "category-color=s"           => \$CATEGORY_COLOR,
+      "subcategory-color=s"        => \$SUBCATEGORY_COLOR,
+      "text-color=s"               => \$TEXT_COLOR,
+      "n=s"                        => \$NUMBER_IN_SET,
+      "number-in-set=s"            => \$NUMBER_IN_SET,
+      "rotate-endcaps"             => \$ROTATE_ENDCAPS,
+      "rows-columns=s"             => \$ROWS_COLUMNS,
+      "tray-overlay=s"             => \$TRAY_OVERLAY,
+      "tray-overlay-scaleratio=s"  => \$TRAY_OVERLAY_SCALERATIO,
+   ))
+   { &show_help; }
+
+if($HELP) {
+    &show_help();
+}
+
+# Do we have enough flags to go on? Bail here if not.
+# april 2001: -c -s are both optional now...
+
+if($COVER_TEMPLATE && -f $COVER_TEMPLATE)
+{
+    $template = $COVER_TEMPLATE;
+    $found_template = 1; 
+}
+unless ($found_template) {    &error("Postscript template file not found") }
+
+# Category/title
+my $category = &scrub($CATEGORY);
+
+# Subcategory/subtitle
+my $subcategory = &scrub($SUBCATEGORY);
+
+# Items | directories | songs
+if (defined($ITEMS_FILE)) {
+   my $infile = $ITEMS_FILE;
+   @items = split(/\n/, &scrub(get_file_contents($infile,@where_is_the_template)));
+}
+elsif (defined($ITEMS)){
+   my $clean_items = &scrub($ITEMS);
+   @items = (split (/%/, $clean_items));
+}
+
+# Word wrapping
+if (defined($TRAY_WORD_WRAP)) {
+   @items = &word_wrap(@items);
+}
+
+# how to split the items between tray and cover
+if (defined($COVER_ITEMS)) {
+    unless ( $COVER_ITEMS =~ /^([+]?\d+)$/ ) {
+       &error("-v num items in cover must be a positive integer");
+    }
+    $num_items_cover = $COVER_ITEMS;
+    @cover_items = @items;
+    if ($num_items_cover < ($#items + 1)) {
+       # split items between cover and tray
+       @tray_items = splice(@cover_items, $num_items_cover);
+    } else {
+       # put all items on cover, no items in tray
+       @tray_items = (' ');
+    }
+}
+else { # Else, no items to be printed on cover, default
+    $num_items_cover = 0;
+    @cover_items = (' ');
+    @tray_items = @items;
+}
+
+# Need to at least have an empty string, 1 min item needed
+@cover_items = (' ') if ($#cover_items < 0);
+@tray_items = (' ') if ($#tray_items < 0);
+
+# Format for a postscript array of strings now that we've wrapped (or not)
+# mar 01 avinash: To try to keep this from exceeding
+# DSC line len (255 chars), insert \n after each item
+@tray_items = map {"($_)\n"} @tray_items;
+@cover_items = map {"($_)\n"} @cover_items;
+
+# Date stuff
+if (defined($DATE)) {
+    $date = &scrub($DATE);
+}
+else {
+    $date = &get_date();
+}
+if ($NODATE) {
+    $date = '';
+}
+
+# 20021102 - <tmancill@debian.org> - patch for "volume in a set"
+# based on a patch submission by David Schmitt <david@schmitt.edv-bus.at>
+# sample usage is:
+#    for $i in `seq 1 5`; do
+#    cdlabelgen -c "My Filesystem" -s "/usr/local/foo" \
+#       -n "CD $i of 5" -e postscript/recycle.eps > foo_$i.ps
+#    done
+if (defined($NUMBER_IN_SET)) {
+   my $number_in_set = &scrub($NUMBER_IN_SET);
+   if ($date) {
+      $date .= " - ";
+   }
+   $date .= $number_in_set;
+}
+
+# page offsets
+# yoffset - to fit various sized pages. 0.8 works for letter, 1.5 for A4
+if (defined($PAGE_OFFSET)) {
+    if ($PAGE_OFFSET =~ /,/) {
+        ($xoffset, $yoffset) = split( /,/, $PAGE_OFFSET, 2);
+        unless ( $xoffset =~ /^([+-]?\d+)$|([+-]?(\d+\.\d+|\d+\.|\.\d+))$/ ) {
+          &error("--page-offset page_X_offset in inches must be a integer or floating point number");
+        }
+    } else {
+        $yoffset = $PAGE_OFFSET;
+    }
+    unless ( $yoffset =~ /^([+-]?\d+)$|([+-]?(\d+\.\d+|\d+\.|\.\d+))$/ ) {
+      &error("--page-offset page_Y_offset in inches must be a integer or floating point number");
+    }
+}
+# cover espfile scaling with optional translate
+if (defined($COVER_IMAGE_SCALERATIO)) {
+    ($eps_cover_scale, $cover_image_xoffset, $cover_image_yoffset) = split( /,/, $COVER_IMAGE_SCALERATIO, 3);
+    unless ( $eps_cover_scale =~ /^([+]?\d+)$|([+]?(\d+\.\d+|\d+\.|\.\d+))$/ ) {
+      &error("-S logo scale ratio must be a positive integer or floating point number");
+    }
+    if (defined($cover_image_xoffset)) {
+      $cover_image_yoffset = "" unless (defined($cover_image_yoffset));
+      unless (
+        $cover_image_xoffset =~ /^([+-]?\d+)$|([+-]?(\d+\.\d+|\d+\.|\.\d+))$/ &&
+        $cover_image_yoffset =~ /^([+-]?\d+)$|([+-]?(\d+\.\d+|\d+\.|\.\d+))$/ ) {
+        &error("-S <scale>[,<xoffset>,<yoffset>] offset in inches must be a pair of numbers: x,y");
+      }
+    } else {
+        $cover_image_xoffset = 0;
+        $cover_image_yoffset = 0;
+    }
+    if ($eps_cover_scale == 0.0 && ($cover_image_xoffset != 0 || $cover_image_yoffset != 0)) {
+      warn("$0: Warning: -S <scale>[,<xoffset>,<yoffset>] scale is zero, so no image translate possible\n");
+    }
+}
+else { # Else, no scaling
+    $eps_cover_scale = 1;
+    $cover_image_xoffset = 0;
+    $cover_image_yoffset = 0;
+}
+
+# traycard espfile scaling and optional translate
+if (defined($TRAY_IMAGE_SCALERATIO)) {
+    ($eps_tray_card_scale, $tray_image_xoffset, $tray_image_yoffset) = split( /,/, $TRAY_IMAGE_SCALERATIO, 3);
+    unless ( $eps_tray_card_scale =~ /^(fill1|fill2|([+]?\d+)|([+]?(\d+\.\d+|\d+\.|\.\d+)))$/ ) {
+      &error("-T logo scale ratio must be a positive integer or floating point number, or the words fill1 or fill2");
+    }
+    if (defined($tray_image_xoffset)) {
+      $tray_image_yoffset = "" unless (defined($tray_image_yoffset));
+      unless (
+        $tray_image_xoffset =~ /^([+-]?\d+)$|([+-]?(\d+\.\d+|\d+\.|\.\d+))$/ &&
+        $tray_image_yoffset =~ /^([+-]?\d+)$|([+-]?(\d+\.\d+|\d+\.|\.\d+))$/ ) {
+        &error("-T <scale>[,<xoffset>,<yoffset>] offset in inches must be a pair of numbers: x,y");
+      }
+      if (
+        ($eps_tray_card_scale =~ /(fill1|fill2)/ || $eps_tray_card_scale == 0.0)
+        &&
+        ($tray_image_xoffset != 0 || $tray_image_yoffset != 0)) {
+          warn("$0: Warning: -T <scale>[,<xoffset>,<yoffset>] scale is zero, so no image translate possible\n");
+      }
+    } else {
+        $tray_image_xoffset = 0;
+        $tray_image_yoffset = 0;
+    }
+}
+else { # Else, no scaling
+    $eps_tray_card_scale = 1;
+    $tray_image_xoffset = 0;
+    $tray_image_yoffset = 0;
+}
+# cover epsfile
+if (defined($COVER_IMAGE)) {
+    $eps_cover_file = get_file_contents($COVER_IMAGE,@where_is_the_template);
+    $eps_cover_bounds = &get_bounding_box($COVER_IMAGE, $eps_cover_scale);
+}
+else {
+    $eps_cover_bounds = $default_bounds;
+    $eps_cover_file = '';
+}
+# traycard epsfile
+if (defined($TRAY_IMAGE)) {
+    $eps_tray_card_file = get_file_contents($TRAY_IMAGE,@where_is_the_template);
+    $eps_tray_card_bounds = &get_bounding_box($TRAY_IMAGE, $eps_tray_card_scale);
+}
+else {
+    $eps_tray_card_bounds = $default_bounds;
+    $eps_tray_card_file = '';
+}
+
+# line width (0 suppreses all cover/tray edge lines)
+if (defined($LINE_WIDTH)) {
+    unless ( $LINE_WIDTH =~ /^([+]?\d+)$|([+]?(\d+\.\d+|\d+\.|\.\d+))$/ ) {
+       &error("-l line width in points must be a positive number");
+    }
+    $edge_line_width = $LINE_WIDTH;
+}
+
+# output file
+if (defined($OUTPUT_FILE)) {
+    open (OUT, ">$OUTPUT_FILE") or &error("Cannot open $OUTPUT_FILE for writing: $!");
+    $print_to_file = 1;
+}
+
+# If this flag is set, don't print the plaque on the back (give more room for items).
+if ($NO_TRAY_PLAQUE) {
+   $show_tray_plaque = 0;
+}
+
+# If this flag is set, don't print the plaque on the cover (only on the sides and maybe the back).
+if ($NO_COVER_PLAQUE) {
+   $show_cover_plaque = 0;
+}
+
+# ---- figure out which insert to output - only one should be set
+my $outputmodes = 0;
+
+if ($CREATE_SLIM_CASE) { # applies to CDs and DVDs
+   $slimcase = "true";
+   $outputmodes++;
+}
+
+if ($CREATE_DOUBLE_CASE) { # applies to DVDs
+   $doublecase = "true";
+   $outputmodes++;
+}
+
+if ($CREATE_ENVELOPE) {
+   $envelopecdcase = "true";
+   $outputmodes++;
+}
+
+if ($CREATE_DVD_INSIDE) {
+   $insidedvdcase  = "true";
+   $outputmodes++;
+}
+
+if ($CREATE_DVD_OUTSIDE) {
+   $outsidedvdcase  = "true";
+   $outputmodes++;
+}
+
+if ($CREATE_CDLABEL) {
+   $cdlabel  = "true";
+   $outputmodes++;
+}
+
+# sanity checks
+if ($CREATE_SLIM_CASE) {
+   &error("Conflicting output modes - slim case cannot be used with dvdinside or envelope") if ($CREATE_DVD_INSIDE || $CREATE_ENVELOPE);
+   }
+if ($CREATE_DOUBLE_CASE) {
+   &error("Conflicting output modes - double case cannot be used with dvdinside or envelope") if ($CREATE_DVD_INSIDE || $CREATE_ENVELOPE);
+   # only dvd outside supported at this time, so force make it set
+   $outsidedvdcase  = "true";
+   }
+if ($outputmodes == 0) { $normalcdcase = "true";}
+if ($outputmodes >= 1) { $normalcdcase = "false";}
+if ($outputmodes > 1) { &error("Conflicting output modes - multiple provided, only one should be present -- cd, dvd-inside, outside, etc") unless (($CREATE_SLIM_CASE || $CREATE_DOUBLE_CASE) && ($outputmodes == 2)); }
+
+#-------------
+
+if ($CLIP_ITEMS) {
+   $enable_item_scaling = "false";
+}
+
+if ($OUTSIDE_FOLDOUT) {
+   $outside_foldout = "true";
+   &error("outside foldout option can only be used with slim-cd or dvd-inside modes") unless ($CREATE_SLIM_CASE || $CREATE_DVD_INSIDE && !$CREATE_DVD_OUTSIDE);
+}
+
+# If this flag is set, rotate the text in endcaps
+if ($ROTATE_ENDCAPS) {
+   $rotate_endcaps = "true";
+}
+
+# If user specified #rows and #columns, use that for printing list of items
+if (defined($ROWS_COLUMNS)) {
+    ($count_rows, $count_cols) = split( /,/, $ROWS_COLUMNS, 2);
+    unless (
+      $count_rows =~ /^([+]?\d+)$|([+]?(\d+\.\d+|\d+\.|\.\d+))$/ &&
+      $count_cols =~ /^([+]?\d+)$|([+]?(\d+\.\d+|\d+\.|\.\d+))$/ ) {
+      &error("--rows-columns=<count_rows_for_items,count_columns_for_items> must be a pair of numbers: x,y");
+    }
+}
+
+######################################################################
+# HANDLE COLORS: added by alessandro aug 02
+#
+# The values supplied to the color options must be in the r,g,b form.
+# The following condition must be true:
+#   
+#    0 <= (r|g|b) <= 255
+#
+# This values must be converted, since postcript needs values lesser
+# then or equal to one.
+
+# PLAQUE color
+
+my $r_plaque_color = 1;   # default color is white
+my $g_plaque_color = 1;
+my $b_plaque_color = 1;
+
+if ($PLAQUE_COLOR)
+{
+   if ($PLAQUE_COLOR !~ /(\d+)\,(\d+)\,(\d+)/) { &error("Plaque color not specified correctly."); }
+
+   $r_plaque_color = $1 / 255; 
+   &error("Plaque color: invalid red component.") if $r_plaque_color > 1;
+   $g_plaque_color = $2 / 255;
+   &error("Plaque color: invalid green component.") if $g_plaque_color > 1;
+   $b_plaque_color = $3 / 255;
+   &error("Plaque color: invalid blue component.") if $b_plaque_color > 1;
+}
+
+# CATEGORY color
+
+my $r_category_color = 0;   # default color is black
+my $g_category_color = 0;
+my $b_category_color = 0;
+
+if ($CATEGORY_COLOR)
+{
+   if ($CATEGORY_COLOR !~ /(\d+)\,(\d+)\,(\d+)/) { &error("Category color not specified correctly."); }
+
+   $r_category_color = $1 / 255; 
+   &error("Category color: invalid red component.") if $r_category_color > 1;
+   $g_category_color = $2 / 255;
+   &error("Category color: invalid green component.") if $g_category_color > 1;
+   $b_category_color = $3 / 255;
+   &error("Category color: invalid blue component.") if $b_category_color > 1;
+}
+
+# SUBCATEGORY color
+
+my $r_subcategory_color = 0;   # default color is black
+my $g_subcategory_color = 0;
+my $b_subcategory_color = 0;
+
+if ($SUBCATEGORY_COLOR)
+{
+   if ($SUBCATEGORY_COLOR !~ /(\d+)\,(\d+)\,(\d+)/) { &error("Subcategory color not specified correctly."); }
+
+   $r_subcategory_color = $1 / 255; 
+   &error("Subcategory color: invalid red component.") if $r_subcategory_color > 1;
+   $g_subcategory_color = $2 / 255;
+   &error("Subcategory color: invalid green component.") if $g_subcategory_color > 1;
+   $b_subcategory_color = $3 / 255;
+   &error("Subcategory color: invalid blue component.") if $b_subcategory_color > 1;
+}
+
+# TEXT color
+
+my $r_text_color = 0;   # default color is black
+my $g_text_color = 0;
+my $b_text_color = 0;
+
+if ($TEXT_COLOR)
+{
+   if ($TEXT_COLOR !~ /(\d+)\,(\d+)\,(\d+)/) { &error("Text color not specified correctly."); }
+
+   $r_text_color = $1 / 255; 
+   &error("Text color: invalid red component.") if $r_text_color > 1;
+   $g_text_color = $2 / 255;
+   &error("Text color: invalid green component.") if $g_text_color > 1;
+   $b_text_color = $3 / 255;
+   &error("Text color: invalid blue component.") if $b_text_color > 1;
+}
+
+# Tray Overlay
+# first - get arguments for scaling with optional translate
+if (defined($TRAY_OVERLAY_SCALERATIO)) {
+    ($eps_tray_overlay_scale, $tray_overlay_image_xoffset, $tray_overlay_image_yoffset) = split( /,/, $TRAY_OVERLAY_SCALERATIO, 3);
+    unless ( $eps_tray_overlay_scale =~ /^([+]?\d+)$|([+]?(\d+\.\d+|\d+\.|\.\d+))$/ ) {
+      &error("--tray-overlay-scaleratio scale ratio must be a positive integer or floating point number");
+    }
+    if (defined($tray_overlay_image_xoffset)) {
+      $tray_overlay_image_yoffset = "" unless (defined($tray_overlay_image_yoffset));
+      unless (
+        $tray_overlay_image_xoffset =~ /^([+-]?\d+)$|([+-]?(\d+\.\d+|\d+\.|\.\d+))$/ &&
+        $tray_overlay_image_yoffset =~ /^([+-]?\d+)$|([+-]?(\d+\.\d+|\d+\.|\.\d+))$/ ) {
+        &error("-tray-overlay-scaleratio <scale>[,<xoffset>,<yoffset>] offset in inches must be a pair of numbers: x,y");
+      }
+    } else {
+        $tray_overlay_image_xoffset = 0;
+        $tray_overlay_image_yoffset = 0;
+    }
+    if ($eps_tray_overlay_scale == 0.0 && ($tray_overlay_image_xoffset != 0 || $tray_overlay_image_yoffset != 0)) {
+      warn("$0: Warning: -tray-overlay-scaleratio <scale>[,<xoffset>,<yoffset>] scale is zero, so no image translate possible\n");
+    }
+}
+else { # Else, no scaling
+    $eps_tray_overlay_scale = 1;
+    $tray_overlay_image_xoffset = 0;
+    $tray_overlay_image_yoffset = 0;
+}
+# now use the scale/offset args to assemble the tray overlay itselfn
+if ($TRAY_OVERLAY)
+{
+    $eps_tray_overlay_file = get_file_contents($TRAY_OVERLAY,@where_is_the_template);
+    $eps_tray_overlay_bounds = &get_bounding_box($TRAY_OVERLAY, $eps_tray_overlay_scale);
+}
+else {
+    $eps_tray_overlay_bounds = $default_bounds;
+    $eps_tray_overlay_file = '';
+}
+
+######################################################################
+# Grab the template
+
+my $psout = get_file_contents($template);
+
+$psout =~ s/TOKEN_BAN_STRING/$category/;
+$psout =~ s/TOKEN_SUBBAN_STRING/$subcategory/g;
+$psout =~ s/TOKEN_DATE/$date/g;
+$psout =~ s/TOKEN_ITEMS_TRAY/ @tray_items/g; # space makes first item indented same as following items
+$psout =~ s/TOKEN_ITEMS_COVER/ @cover_items/g; # space makes first item indented same as following items
+$psout =~ s/TOKEN_EPS_BOUNDS/$eps_cover_bounds/g;
+$psout =~ s/TOKEN_COVER_EPS/$eps_cover_file/g;
+$psout =~ s/TOKEN_TRAY_CARD_BOUNDS/$eps_tray_card_bounds/g;
+$psout =~ s/TOKEN_TRAY_CARD_EPS/$eps_tray_card_file/g;
+$psout =~ s/TOKEN_TRAY_PLAQUE_P/$show_tray_plaque/;
+$psout =~ s/TOKEN_COVER_PLAQUE_P/$show_cover_plaque/;
+$psout =~ s/TOKEN_NORMAL_CDCASE/$normalcdcase/;
+$psout =~ s/TOKEN_SLIM_CASE/$slimcase/;
+$psout =~ s/TOKEN_DOUBLE_CASE/$doublecase/;
+$psout =~ s/TOKEN_ENVELOPE_CDCASE/$envelopecdcase/;
+$psout =~ s/TOKEN_INSIDE_DVDCASE/$insidedvdcase/;
+$psout =~ s/TOKEN_OUTSIDE_DVDCASE/$outsidedvdcase/;
+$psout =~ s/TOKEN_CDLABEL/$cdlabel/;
+$psout =~ s/TOKEN_ENABLE_ITEM_SCALING_P/$enable_item_scaling/;
+$psout =~ s/TOKEN_Y_OFFSET_INCHES/$yoffset/;
+$psout =~ s/TOKEN_X_OFFSET_INCHES/$xoffset/;
+$psout =~ s/TOKEN_COVER_IMAGE_X_OFFSET_INCHES/$cover_image_xoffset/;
+$psout =~ s/TOKEN_COVER_IMAGE_Y_OFFSET_INCHES/$cover_image_yoffset/;
+$psout =~ s/TOKEN_TRAY_IMAGE_X_OFFSET_INCHES/$tray_image_xoffset/;
+$psout =~ s/TOKEN_TRAY_IMAGE_Y_OFFSET_INCHES/$tray_image_yoffset/;
+$psout =~ s/TOKEN_EDGE_LINE_WIDTH/$edge_line_width/;
+$psout =~ s/TOKEN_R_PLAQUE_COLOR/$r_plaque_color/;
+$psout =~ s/TOKEN_G_PLAQUE_COLOR/$g_plaque_color/;
+$psout =~ s/TOKEN_B_PLAQUE_COLOR/$b_plaque_color/;
+$psout =~ s/TOKEN_R_CATEGORY_COLOR/$r_category_color/;
+$psout =~ s/TOKEN_G_CATEGORY_COLOR/$g_category_color/;
+$psout =~ s/TOKEN_B_CATEGORY_COLOR/$b_category_color/;
+$psout =~ s/TOKEN_R_SUBCATEGORY_COLOR/$r_subcategory_color/;
+$psout =~ s/TOKEN_G_SUBCATEGORY_COLOR/$g_subcategory_color/;
+$psout =~ s/TOKEN_B_SUBCATEGORY_COLOR/$b_subcategory_color/;
+$psout =~ s/TOKEN_R_TEXT_COLOR/$r_text_color/;
+$psout =~ s/TOKEN_G_TEXT_COLOR/$g_text_color/;
+$psout =~ s/TOKEN_B_TEXT_COLOR/$b_text_color/;
+$psout =~ s/TOKEN_OUTSIDE_FOLDOUT_P/$outside_foldout/g;
+$psout =~ s/TOKEN_ROTATE_ENDCAPS_P/$rotate_endcaps/;
+$psout =~ s/TOKEN_COUNT_ROWS/$count_rows/;
+$psout =~ s/TOKEN_COUNT_COLS/$count_cols/;
+$psout =~ s/TOKEN_TRAY_OVERLAY_BOUNDS/$eps_tray_overlay_bounds/g;
+$psout =~ s/TOKEN_TRAY_OVERLAY_EPS/$eps_tray_overlay_file/g;
+$psout =~ s/TOKEN_TRAY_OVERLAY_IMAGE_X_OFFSET_INCHES/$tray_overlay_image_xoffset/;
+$psout =~ s/TOKEN_TRAY_OVERLAY_IMAGE_Y_OFFSET_INCHES/$tray_overlay_image_yoffset/;
+
+if ($print_to_file) { print OUT $psout; }
+else { print $psout; }
+##################################################################################
+# Subroutines
+
+sub get_date {
+   my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time);
+   $mon++;
+   if ($mon  < 10) { $mon = "0$mon"; }
+   if ($mday < 10) { $mday = "0$mday"; }
+   $year += 1900; 
+   return "$year-$mon-$mday";     # ISO 8601:1988 
+}   
+
+
+sub get_full_filename {
+    my $fname = shift @_;
+    my ($directory,$realname,$found);
+    $found=0;
+    $realname=$fname;
+    foreach $directory ("",@_) {
+        if ( -f "$directory$fname") {
+            $realname = "$directory$fname";
+            $found = 1;
+            last;
+        }
+    }
+    return $realname;
+}
+
+
+sub get_file_contents {
+    my $fname = shift @_;
+    local $/ = undef;
+    my ($directory,$realname,$found);
+    $found=0;
+    foreach $directory ("",@_) {
+        if (open (GET_FILE, "$directory$fname")) {
+            $realname = "$directory$fname";
+            $found = 1;
+            last;
+        }
+    }
+    unless ($found) {    &error("Cannot open $fname") }
+    $_ = <GET_FILE>;
+    close GET_FILE;
+
+        # check end-of-line delimter, make is \n, which is what
+        # input will be split on...
+    s/$CR?$LF/\n/g; # variables from Socket package
+
+    $_ .= "\n" unless m/\n$/; # make sure last item is included
+
+    return $_;
+}
+
+
+sub scrub {
+    my $string = shift @_;
+    $string =~ s?\(?\\050?g;
+    $string =~ s?\)?\\051?g;
+    return $string;
+}
+
+
+sub get_bounding_box {
+    my $file = shift @_;
+    my $eps_scale = shift @_;
+    my $bounds;
+    my $got_bounding_box = 0;
+    $/ = $default_eol;
+    open (EPS, get_full_filename("$file",@where_is_the_template)) or &error("Cannot open epsfile $file");
+    while (<EPS>) {
+        chomp;
+        if (s/\%\%BoundingBox: //) {
+            my ($llx, $lly, $urx, $ury) = split (/\s/, $_);
+            $bounds ="\n/bound1x $llx def\n/bound1y $lly def\n/bound2x $urx def\n/bound2y $ury def\n";
+	    if ($eps_scale =~ /fill1|0.0/) { # -T option only
+		  $bounds .="/trayimage_fill_all false def\n";
+		  $bounds .="/scaleratio 0.0 def\n";
+	    } elsif ($eps_scale =~ /fill2/) { # -T option only
+		  $bounds .="/trayimage_fill_all true def\n";
+		  $bounds .="/scaleratio 0.0 def\n";
+	    } else {
+		  $bounds .="/scaleratio $eps_scale def\n";
+	    }
+            $got_bounding_box = 1;
+            last;
+        }
+    }
+    unless ($got_bounding_box) {
+        &error("Cannot get BoundingBox from $file. Are you sure it's an EPS file?");
+    }
+undef $/;
+    return $bounds;
+}
+
+# Ugh. This is nasty and hackish, but it sort of does the trick. If
+# anyone can improve the word wrapping capability (either in this
+# routine(yuck) or in the postscript (yay!), *please* do and send me
+# the diffs.  I'd love to do this in postscript, but I just don't have
+# the time right now.
+sub word_wrap {
+   my @long_items = @_;
+   my $long_item;
+   my @long_item;
+   my $max_chars; 
+   my @wrapped_items;
+
+   # Account for the super long possibilities of the single column display
+   # Note that by wrapping, it may add a column (or 2), so account for that!
+   # Jan 2002: With no wrapping, the current template.ps can handle
+   # a minimum of these many items (assuming no title/subtiutle on tray):
+   # 1 col -> 60
+   # 2 col -> 120
+   # 3 col -> 180
+   # 4 col -> 240
+   # 5 col -> 300
+   # Since the cover is slightly larger,
+   # it can take one additional item in each column
+
+ SWITCH: {
+      ($#long_items < 40)  && do { $max_chars = 135; last SWITCH;}; # try 1 cols
+      ($#long_items < 100) && do { $max_chars = 107; last SWITCH;}; # try 2 cols
+      ($#long_items < 160) && do { $max_chars = 79; last SWITCH;}; # try 3 cols
+      ($#long_items < 220) && do { $max_chars = 51; last SWITCH;}; # try 4 cols
+      $max_chars = 23;                                             # need 5 cols
+   }
+
+   foreach $long_item (@long_items) {
+
+      @long_item = split(/(\s+)/, $long_item);
+      my $len = 0;
+      my $wrapped = "";
+
+      foreach (@long_item) {
+      $len += length($_);
+      if ($len > $max_chars) {
+              push (@wrapped_items, $wrapped);
+         # remove leading spaces
+              $_ =~ s/^\s+//g;
+              $wrapped = "   $_"; # indent wrapped lines a bit
+          $len = length($wrapped);
+      } else {
+          $wrapped .= $_;
+      }
+      }
+      push (@wrapped_items, $wrapped);
+   }
+   return @wrapped_items;
+}
+
+
+sub show_help {
+    print <<EOT;
+cdlabelgen, 4.1.0: (C) Avinash Chopde <avinash\@aczoom.com>  www.aczoom.com
+usage: $0 
+   -c, --category <category>
+   -s, --subcategory <subcategory>
+   -i, --items <item1%item2%etc>
+   -f, --items-from-file <itemsfile>
+   -v, --cover-items <num_items_cover>
+   -e, --cover-image <cover_epsfile>
+   -S, --cover-image-scaleratio <cover_eps_scaleratio>[,<image_x_offset>,<image_y_offset_inches>]
+   -E, --tray-image <tray_epsfile>
+   -T, --tray-image-scaleratio <tray_eps_scaleratio>[,<image_x_offset>,<image_y_offset_inches>]
+   -d, --date <date>
+   -D, --no-date
+   -o, --output-file <outputfile>
+   -t, --cover-template <template>
+   -b, --no-tray-plaque
+   -C, --no-cover-plaque
+   -w, --tray-word-wrap
+   -h, --help
+   -m, --slim-case
+       --double-case
+   -M, --create-envelope
+       --create-dvd-inside
+       --create-dvd-outside
+       --create-cdlabel
+   -O, --outside-foldout
+       --rotate-endcaps
+   -p, --clip-items
+   -y, --page-offset [<page_x_offset>,]<page_y_offset_inches>
+   -l, --line-width <line_width_points>
+       --plaque-color <r_0_to_255>,<g_0_to_255>,<b_0_to_255>
+       --category-color <r_0_to_255>,<g_0_to_255>,<b_0_to_255>
+       --subcategory-color <r_0_to_255>,<g_0_to_255>,<b_0_to_255>
+       --text-color  <r_0_to_255>,<g_0_to_255>,<b_0_to_255>
+   -n, --number-in-set <number-in-set/volume info>
+   --rows-columns <count_rows_for_items,count_columns_for_items>
+   --tray-overlay <tray_overlay_epsfile>
+   --tray-overlay-scaleratio <scaleratio>[,<x_offset>,<y_offset_inches>]
+EOT
+exit 255;
+}
+
+
+sub error {
+    my $err = shift @_;
+    warn "$0: $err\n\n";
+    &show_help;
+}
+
+__END__

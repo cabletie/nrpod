@@ -1,0 +1,584 @@
+------------------------------------------------------------------------------
+Note that there is no technical support for installing this.
+
+But, if you are reasonably comfortable with Linux, Web Management,
+Apache, Perl, and have installed and updated such packages, you should not
+have problems installing this package for web access.
+
+There are no step-by-step instructions, for help, here are the docs
+to look at:
+- sample web page ( http://www.aczoom.com/tools/cdinsert/  )
+- the cdinsert.pl perl script
+- this doc, which contains some snippets of HTML template files, etc
+
+------------------------------------------------------------------------------
+This file contains example of three html files:
+
+1: Example of HTML FORM that calls cdinsert.pl [form.tmpl]
+2: Example of initial.tmpl working.tmpl done.tmpl used by cdinsert.pl
+3: crontab entry to clean tmp files
+
+------------ 1: form.tmpl Example of Form that calls cdinsert.pl -----------
+<!-- form template - just the form, no header/footer -->
+<!-- =========================================================== -->
+<!-- display the form only if the remote CGI server is alive,
+     otherwise display a "not available sign"
+     Using PHP3 script below, escaping out of PHP to echo large
+     sections of HTML.
+-->
+
+<H2 ALIGN="center">Online CD Inserts and Envelopes</H2>
+
+<FORM
+          ACTION="/cgi-bin/cdinsert.pl"
+	  METHOD="POST"
+	  ENCTYPE="multipart/form-data"
+	  NAME="webform">
+
+      <TABLE CELLSPACING="0" CELLPADDING="10" BORDER="3" ALIGN="CENTER">
+      <TR VALIGN="top">
+
+	<TD COLSPAN="2">
+	  <b>1</b>: [Optional] Title and/or Subtitle.
+	  &nbsp;&nbsp;&nbsp;
+	  <BR>
+	  Title:
+	  <input type="text" name="title" value="" size="30" maxlength="200">
+	  &nbsp;&nbsp;&nbsp;&nbsp;
+	  Subtitle:
+	  <input type="text" name="subtitle" value="" size="30" maxlength="200">
+	</TD>
+
+      </TR>
+      <TR>
+	<TD COLSPAN="2">
+	<!-- empty row, just making thicker border! -->
+	</TD>
+      </TR>
+      <TR>
+	<TD COLSPAN="2">
+	  <b>2</b>: [Optional] Image to print as background on cover.
+	  <BR>
+
+	  &nbsp;&nbsp;
+	  Select image, or upload a JPEG image file.
+	</TD>
+      </TR>
+      <TR>
+	<TD>
+	  &nbsp; 2a: 
+	  Select cover background: <select name="cimage">
+	    <option value="" selected>- no image -</option>
+
+	    <option value="music1.eps">Music Notes 1</option>
+	    <option value="music2.eps">Music Notes 2</option>
+	    <option value="cd.eps">CD</option>
+	    <option value="cdda.eps">CDDA</option>
+	    <option value="mp3.eps">MP3</option>
+	    <option value="penguin.eps">Penguin</option>
+
+	    <option value="recycle.eps">Recycle</option>
+	    <option value="debian-color.eps">Debian</option>
+	    <option value="divx.eps">DivX</option>
+	    <option value="ogg.eps">Xiph.Org Logo</option>
+	    <option value="winamp.eps">Winamp</option>
+	  </select>
+
+	  &nbsp;
+	  ( <A HREF="http://www.aczoom.com/tools/cdinsert/exlogos.html">Pictures</A> )
+	</TD>
+	<TD ROWSPAN="2" VALIGN="middle">
+	  <input type="checkbox" name="clogo" value="true">Use image as logo, no scaling.
+	</TD>
+      </TR>
+      <TR>
+
+	<TD>
+	  &nbsp; 2b: 
+	  Upload cover JPEG:
+	    <input type=file name="cimagefile" size="17" maxlength="150000">
+	</TD>
+      </TR>
+      <TR>
+	<TD COLSPAN="2">
+	<!-- empty row, just making thicker border! -->
+	</TD>
+
+      </TR>
+      <TR>
+	<TD COLSPAN="2">
+	  <b>3</b>: [Optional] Image to print as background on tray card (or inside cover).
+	  <BR>
+	  &nbsp;&nbsp;
+	  Select image, or upload a JPEG image file.
+	</TD>
+      </TR>
+
+      <TR VALIGN="top">
+	<TD>
+	  &nbsp; 3a:
+	  Select tray background: <select name="timage">
+	    <option value="" selected>- no image -</option>
+	    <option value="music1.eps">Music Notes 1</option>
+	    <option value="music2.eps">Music Notes 2</option>
+
+	    <option value="cd.eps">CD</option>
+	    <option value="cdda.eps">CDDA</option>
+	    <option value="mp3.eps">MP3</option>
+	    <option value="penguin.eps">Penguin</option>
+	    <option value="recycle.eps">Recycle</option>
+	    <option value="debian-color.eps">Debian</option>
+
+	    <option value="divx.eps">DivX</option>
+	    <option value="ogg.eps">Xiph.Org Logo</option>
+	    <option value="winamp.eps">Winamp</option>
+	  </select>
+	  &nbsp;
+	  ( <A HREF="http://www.aczoom.com/tools/cdinsert/exlogos.html">Pictures</A> )
+	</TD>
+
+	<TD ROWSPAN="2" VALIGN="middle">
+	  <input type="checkbox" name="tlogo" value="true">Use image as logo, no scaling.
+	</TD>
+      </TR>
+      <TR VALIGN="top">
+	<TD>
+	  &nbsp; 3b:
+	  Upload tray JPEG:
+	    <input type=file name="timagefile" size="17" maxlength="150000">
+	</TD>
+
+      </TR>
+      <TR COLSPAN="2">
+	<TD>
+	<!-- empty row, just making thicker border! -->
+	</TD>
+      </TR>
+      <TR>
+	<TD COLSPAN="2">
+	  <b>4</b>: Enter list of items (CD/DVD table of contents) here:
+	  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+	  <input type="reset" value="[Clear All]">
+	  <BR>
+	  <textarea  name="contents" rows="20" cols="60"></textarea>
+	  <BR>
+	  OR:
+	  Select a text file containing
+	  the list of items (ASCII or Latin1 only):
+	  <BR>
+	  Upload text file:
+	      <input type=file name="filename" size="40" maxlength="150000">
+	</TD>
+
+      </TR>
+      <TR>
+	<TD>
+	  <b>5</b>: [Optional] Barcode/QRcode - overlay this on the tray.
+	  <BR>
+	  &nbsp;&nbsp;
+	  Enter barcode text:
+	  <input type="text" name="bcodetext" value="" size="30" maxlength="1000">
+	</TD>
+	<TD>
+	  Select barcode type/symbology:
+	  <br>
+	  &nbsp;&nbsp;
+	  <select name="bcodetype">
+	    <option value="Code39">Code39</option>
+	    <option value="QRcode" selected>QRcode</option>
+	    <option value="COOP2of5 ">COOP2of5 </option>
+	    <option value="EAN13">EAN13</option>
+	    <option value="EAN8">EAN8</option>
+	    <option value="IATA2of5">IATA2of5</option>
+	    <option value="Industrial2of5">Industrial2of5</option>
+
+	    <option value="ITF">ITF</option>
+	    <option value="Matrix2of5">Matrix2of5</option>
+	    <option value="NW7">NW7</option>
+	    <option value="UPCA">UPC-A</option>
+	    <option value="UPCE">UPC-E</option>
+	  </select>
+
+	  <p>
+	  &nbsp;
+	  ( Barcode types: <A HREF="http://search.cpan.org/~kwitknr/GD-Barcode/">GD::Barcode</A> )
+	</TD>
+      </TR>
+      <TR>
+	<TD COLSPAN="2">
+	<!-- empty row, just making thicker border! -->
+	</TD>
+
+      </TR>
+      <TR VALIGN="middle">
+	<TD>
+	  <b>6a</b>: Choose Output Type:
+
+	  <BR>
+	  &nbsp;&nbsp;&nbsp;
+	  <input type="radio" name="cdcase" value="normal" checked>Create
+	  Inserts for Normal CD Case
+	  <BR>
+	  &nbsp;&nbsp;&nbsp;
+
+	  <input type="radio" name="cdcase" value="slimcase">Create Folding
+	  Insert for Slim CD Case
+	  <BR>
+	  &nbsp;&nbsp;&nbsp;
+	  <input type="radio" name="cdcase" value="dvdinside">Create Inside
+	  Insert for DVD Case
+	  <BR>
+	  &nbsp;&nbsp;&nbsp;
+	  <input type="radio" name="cdcase" value="dvdoutside">Create Outside
+	  Cover for DVD Case
+	  <BR>
+	  &nbsp;&nbsp;&nbsp;
+	  <input type="radio" name="cdcase" value="doublecase">Create Outside
+	  Insert for Double DVD Case
+	  <BR>
+	  &nbsp;&nbsp;&nbsp;
+	  <input type="radio" name="cdcase" value="envelope">Create Envelope
+	  for CD/DVD
+	</TD>
+
+	<TD ROWSPAN="2" VALIGN="middle">
+	  <b>7</b>: 
+	  &nbsp;&nbsp;&nbsp;
+	  <input type="submit" name="submitkey" value="Submit for processing">
+          <span id="blockedParagraph"></span>
+	</TD>
+      </TR>
+      <TR VALIGN="middle">
+	<TD>
+
+	  <b>6b</b>: Select options:
+
+	  <BR>
+	  &nbsp;&nbsp;&nbsp;
+	  <input type="checkbox" name="notrayheading" value="true">Omit
+	  Title &amp; Subtitle from Tray (more space for items)
+
+	  <BR>
+	  &nbsp;&nbsp;&nbsp;
+	  <input type="checkbox" name="scaleitems" value="true">Enable
+	  scaling down of items (no clipping) if needed
+
+	  <BR>
+	  &nbsp;&nbsp;&nbsp;
+
+	  <input type="checkbox" name="splititems" value="false">Print
+	  half the items on cover, rest on tray card
+
+	  <BR>
+	  &nbsp;&nbsp;&nbsp;
+	  <input type="checkbox" name="a4paper" value="true">Adjust
+	  image up for A4 paper (instead of Letter)
+
+	  <BR>
+	  &nbsp;&nbsp;&nbsp;
+	  <input type="checkbox" checked name="makegif" value="true">Create
+	  GIF preview too
+	</TD>
+      </TR>
+      </TABLE>
+
+    </FORM>
+
+<P>
+<CENTER>
+<HR SIZE="2" WIDTH="100%">
+</CENTER>
+
+Email any bug-reports or comments and suggestions to:
+....
+<EM>
+Please note that no technical support is available for 
+the tools on this web page.
+</EM>
+
+----------------- 2a: Example of working.tmpl used by cdinsert.pl ------------
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<!-- perl HTML::Template page - displayed in two sections by the CGI script.
+     HTML data presented after user has clicked on "Submit", page
+     displays "please wait, processing..." on client browser
+-->
+<HEAD>
+  <style type="text/css">
+  BODY {margin-left: 10% ; margin-right: 10%}
+  </style>
+  <TITLE>Processing - Online CD Inserts and Envelope</TITLE>
+  <SCRIPT LANGUAGE="JavaScript"><!--
+    function redirect() {
+      setTimeout("goto_page()", 2000);
+    }
+
+    function goto_page() {
+      if (document.emptyform.dontredirect.value != "1") {
+	  window.location.href="<TMPL_VAR ESCAPE=0 NAME=MRKR_WEBDONEHTML>";
+      }
+    }
+  //--></SCRIPT>
+</HEAD>
+
+<BODY
+  onLoad="redirect()"
+  TEXT="#000033" BGCOLOR="#EEEEFF"
+  LINK="#000066" VLINK="#666699" ALINK="#669966">
+
+<P>
+<!-- Hello, visitor from <TMPL_VAR ESCAPE=HTML NAME=MRKR_HOSTNAME> -->
+<H3>Hello!</H3>
+
+<P>Processing input from the cd inserts and envelopes creator...
+
+<P>
+<!-- at this point in the page, display "wait... processing...." lines
+ the word SHOWSTATUS_HERE on a line by itself below is
+ replaced with the "wait...doing1 ... doing2... doing3 ..." lines -->
+SHOWSTATUS_HERE
+<!-- when all processing done, display the rest of the file below -->
+
+<P>
+<HR>
+<P>
+
+<TMPL_IF NAME=MRKR_ANYERROR>
+  There was an error processing your input.
+  <P>
+  <EM>Advanced users: If you have experience deciphering cdinsert.pl or
+  cdlabelgen error messages, you can take a look at the
+  <A HREF="<TMPL_VAR ESCAPE=0 NAME=MRKR_MSGFILE>">log file</A>
+  which shows the output from all programs.</EM>
+</TMPL_IF>
+
+<P>
+  <FONT SIZE="+0">If no error occurred, in a second,
+  this page will refresh to display your output.</FONT>
+
+  <P>
+  <FONT SIZE="+0">(If this page does not refresh automatically,
+  <A HREF="<TMPL_VAR ESCAPE=0 NAME=MRKR_WEBDONEHTML>">click here to go to the results page</A>.)</FONT>
+
+
+<FORM NAME="emptyform">
+<!-- this dummy form is used to inhibit the redirect onLoad defined in BODY.
+     This is in case an error occured, which is then displayed in the middle
+     of this page itself, and we don't want to redirect in that case.
+     If the value is set to 1, no redirect takes place.
+ -->
+<input
+ type="hidden" NAME="dontredirect"
+ value=<TMPL_IF NAME=MRKR_DONTREDIRECT>"1"<TMPL_ELSE>"0"</TMPL_IF> >
+</FORM>
+
+<!-- =============================== ========================= -->
+</BODY>
+</HTML>
+
+----------------- 2b: Example of done.tmpl used by cdinsert.pl ---------------
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<HTML>
+<!-- perl HTML::Template page - final page template, with all the results
+     filled in - the final output of the CGI job, after all processing is
+     done.
+-->
+<HEAD>
+  
+<TITLE>Output - Online CD Inserts and Envelope</TITLE>
+
+  <style type="text/css">
+  BODY {margin-left: 10% ; margin-right: 10%}
+  </style>
+
+</HEAD>
+<BODY
+  TEXT="#000033" BGCOLOR="#EEEEFF"
+  LINK="#000066" VLINK="#666699" ALINK="#669966">
+
+<H1 ALIGN="center">Output - Online CD Inserts and Envelopes</H1>
+
+<!-- Hello, visitor from <TMPL_VAR ESCAPE=HTML NAME=MRKR_HOSTNAME> -->
+<H3>Hello!</H3>
+
+<P>
+<TMPL_IF NAME=MRKR_ANYERROR>
+There was an error processing your input.
+<P>
+  <EM>Advanced users: If you have experience deciphering cdinsert.pl or
+  cdlabelgen error messages, you can take a look at the
+  <A HREF="<TMPL_VAR ESCAPE=0 NAME=MRKR_MSGFILE>">log file</A>
+  which shows the output from all programs.</EM>
+<P>
+The output MAY be available in some formats (click to check and view, or use
+your browser's tools to save to your local drive):
+<TMPL_ELSE>
+Successfully processed your input text!
+<P>
+The output is available in following formats (click to view, or use
+your browser's tools to save to your local drive):
+</TMPL_IF>
+
+<P>
+<TMPL_IF NAME=MRKR_GIFERROR>
+We could not run the programs to convert the PostScript output
+to a GIF image - it may be possible that the PostScript and/or PDF
+output is correct, you can take a look at the links below.
+</TMPL_IF>
+<TMPL_IF NAME=MRKR_SYSERROR>
+We could not run the programs to create the PostScript file
+or GIF image. This could be one of two things:
+<P>
+1) A system
+configuration problem at our server: we will try to fix this if
+we can [the error has been logged].
+<P>
+2) Input Error. If you uploaded image or item files, make sure that
+the cover or tray image files you upload are JPEG files only (file names
+usually end in .jpg or .jpeg). The list of items file you upload should
+be a text file only (file names usually end in .txt). If either of
+these files is an unsupported format, it will result in system errors.
+</TMPL_IF>
+
+<P>
+<HR>
+
+<TABLE CELLSPACING="5">
+  <TR>
+    <TD ALIGN="right"><b>Adobe PDF:</b></TD>
+    <TD><A HREF="<TMPL_VAR ESCAPE=0 NAME=MRKR_PDF>"><b>output - pdf</b></A></TD>
+    <TD ALIGN="right"><SMALL>(Best viewed using 
+      <A HREF="http://www.cs.wisc.edu/~ghost/">Ghostscript/Ghostview/GSview<A>)
+      </SMALL>
+    </TD>
+  </TR>
+  <TR>
+    <TD ALIGN="right"><b>Adobe PostScript:</b></TD>
+    <TD><A HREF="<TMPL_VAR ESCAPE=0 NAME=MRKR_POSTSCRIPT>"><b>output - ps</b></A></TD>
+    <TD ALIGN="right"><SMALL>(Best viewed using 
+      <A HREF="http://www.cs.wisc.edu/~ghost/">Ghostscript/Ghostview/GSview<A>)
+      </SMALL>
+    </TD>
+  </TR>
+  <TMPL_IF NAME=MRKR_MAKEGIF>
+  <TR>
+    <TD ALIGN="right"><b>GIF image:</b></TD>
+    <TD><A HREF="<TMPL_VAR ESCAPE=0 NAME=MRKR_GIF>"><b>output - gif</b></A></TD>
+  </TR>
+  </TMPL_IF>
+  <TMPL_IF NAME=MRKR_MAKEBCODE>
+  <TR>
+    <TD ALIGN="right"><b>Barcode Encapsulated Postscript:</b></TD>
+    <TD><A HREF="<TMPL_VAR ESCAPE=0 NAME=MRKR_BCODE_EPS>"><b>barcode - eps</b></A></TD>
+  </TR>
+  </TMPL_IF>
+</TABLE>
+
+<P>
+[
+<EM>Note: these files will available here only for a short time, save all
+required files to your local drive if you need to access them 
+in the future.</EM>
+<P>
+<EM>Advanced users: If the output looks
+incorrect to you, and if you have experience deciphering jpeg2ps or
+cdlabelgen error messages,
+you can take a look at the
+  <A HREF="<TMPL_VAR ESCAPE=0 NAME=MRKR_MSGFILE>">log file</A>
+which shows the output from all programs.</EM>
+
+<P>
+<em>It took
+<TMPL_VAR ESCAPE=HTML NAME=MRKR_TIMETAKEN>
+to process this input.</em>
+]
+
+<P>
+Your input is available here:
+<A HREF="<TMPL_VAR ESCAPE=0 NAME=MRKR_INPUT>">input.txt</A>
+in case
+you wish to resend it with changes or corrections.
+<BR>
+Some tips and common errors are available at 
+<A HREF="http://www.aczoom.com/tools/cdinsert/" TARGET="_top">main page</A>.
+
+<P>
+
+<TMPL_IF NAME=MRKR_MAKEGIF>
+Here's the black and white GIF image of your output:
+<P>
+<IMG SRC="<TMPL_VAR ESCAPE=0 NAME=MRKR_GIF>" HSPACE=20 VSPACE=10 BORDER=0>
+<P>
+</TMPL_IF>
+
+<P>
+<!-- =============================== ========================= -->
+<TMPL_VAR ESCAPE=0 NAME=MRKR_FORM_HTML>
+<!-- =============================== ========================= -->
+<P>
+</BODY>
+</HTML>
+
+--------------- 2c: Example of initial.tmpl used by cdinsert.pl ------------
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
+<HTML>
+<!-- page template - displays form with no filled in values -->
+<HEAD>
+
+  <META Name="description" Content="Online Interface to cdlabelgen -
+        Printing CD/DVD Jewel Case inserts and CD/DVD Envelopes - Avinash Chopde">
+
+  <META Name="keywords" Content="cdlabelgen, cd, jewel case, inserts,
+  	envelope, Color, PostScript, PDF, Avinash, Chopde">
+
+  <TITLE>Online CD/DVD Inserts and Envelopes - cdlabelgen</TITLE>
+
+  <LINK REL="shortcut icon" HREF="/favicon.ico">
+  <LINK REV="made" HREF="mailto:avinash@acm.org">
+
+  <style type="text/css">
+  BODY {margin-left: 5% ; margin-right: 5%}
+  </style>
+
+</HEAD>
+
+<BODY
+  TEXT="#000033" BGCOLOR="#EEEEFF"
+  LINK="#000066" VLINK="#666699" ALINK="#669966">
+
+<H1 ALIGN="center">Online CD/DVD Inserts and Envelopes</H1>
+<CENTER>
+
+<FONT SIZE="+0" COLOR="RED">
+This online interface may be down at various times for maintenance.
+</FONT><BR>
+
+<H4 ALIGN="center">
+Output in Color PostScript and PDF formats, with B/W GIF preview
+</H4>
+
+<P>
+<HR SIZE="2" WIDTH="100%" ALIGN="center">
+
+<!-- =========================================================== -->
+<!-- TMPL_INCLUDE NAME="form.tmpl" -->
+<!-- =========================================================== -->
+
+</BODY></HTML>
+
+----------------- 3: Example of crontab for cleanup  ---------------
+4: crontab entry used to delete tmp directories on a periodic basic
+# MIN HOUR DAY MONTH DAYOFWEEK   COMMAND
+# remove web tmp folders on a periodic basis
+# 10 0,6,12,18 * * * ~/rm-old-dirs >> /dev/null 2>&1
+# or
+# 10 0,6,12,18 * * * ~/rm-old-dirs >> ~/cron.log 2>&1
+
+rm-old-dirs:
+#!/bin/sh
+# 1440 minutes == 24 hours
+# (using mtime +1 actually finds files more than  2 days old, mmin is better)
+find ~/tmp -mindepth 1 -type d -mmin +1440 \( -name it\* -o -name cd\* \) -print0 | xargs -0r rm -rf
+
+-----------------------------------------------------------------------

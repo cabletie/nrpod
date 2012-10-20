@@ -1,0 +1,42 @@
+=head1 NAME
+
+Install - Installation guide for cdlabelgen
+
+=head1 SYNOPSIS
+
+The basic step to install cdlabelgen on a Unix system is:
+
+	make install
+or
+        rpm -Uvh cdlabelgen-n.n.n-n.noarch.rpm
+                 (use appropriate file version n.n.n-n)
+
+'man cdlabelgen' will show you the documentation for cdlabelgen.
+Or, use the pre-made cdlabelgen.html to view the  man page.
+
+
+=head1 NOTES
+
+If you prefer not to 'install' cdlabelgen, it will function perfectly
+well as long as 'postscript/template.ps' is in your current working
+directory (See @where_is_the_template in cdlabelgen to find out all
+the places that cdlabelgen looks for its template by
+default). cdlabelgen needs the template.ps file located in
+./postscript/ to function properly, and 'make install' will put
+template.ps in /usr/local/lib/cdlabelgen/ by default.
+On Windows NT, the c:\cdlabelgen folder is used.
+
+=head1 DESCRIPTION
+
+If you're installing cdlabelgen on a non-Unix system, it I<should>
+work just fine, but your mileage may vary. cdlabelgen has been
+installed and tested on Slackware Linux.
+
+=head1 AUTHOR
+
+Now maintained by Avinash Chopde E<lt>F<avinash@acm.org>E<gt>
+Home page: http://www.aczoom.com/tools/cdinsert/
+
+=head1 LAST MODIFIED
+
+October 2008

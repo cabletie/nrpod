@@ -1,0 +1,714 @@
+<?xml version="1.0" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>cdlabelgen - CD/DVD labels, jewel case inserts, and envelopes creator.
+Generates frontcards and traycards for CD cases, single-cd envelopes, DVD
+case inserts, as well as output suitable for direct printing on CD/DVD.</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@localhost" />
+</head>
+
+<body style="background-color: white">
+
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<ul>
+
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#version">VERSION</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#switches">SWITCHES</a></li>
+	<li><a href="#examples">EXAMPLES</a></li>
+	<li><a href="#character_encodings__using_ogonkify">CHARACTER ENCODINGS - using ogonkify</a></li>
+	<li><a href="#printing">PRINTING</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#thanks">THANKS</a></li>
+	<li><a href="#todo">TODO</a></li>
+</ul>
+<!-- INDEX END -->
+
+<hr />
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>cdlabelgen - CD/DVD labels, jewel case inserts, and envelopes creator.
+Generates frontcards and traycards for CD cases, single-cd envelopes, DVD
+case inserts, as well as output suitable for direct printing on CD/DVD.</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<p>cdlabelgen [ <strong>-c</strong> &lt;category&gt; <strong>-s</strong> &lt;subcategory&gt;
+<strong>-i</strong> &lt;item1%item2%etc&gt; <strong>-f</strong> &lt;itemsfile&gt;  <strong>-v</strong> &lt;num_items_cover&gt;
+<strong>-e</strong> &lt;cover_epsfile&gt;
+<strong>-S</strong> &lt;cover_eps_scaleratio&gt;[,&lt;image_x_offset&gt;,&lt;image_y_offset_inches&gt;]
+<strong>-E</strong> &lt;tray_epsfile&gt; 
+<strong>-T</strong> &lt;tray_eps_scaleratio&gt;[,&lt;image_x_offset&gt;,&lt;image_y_offset_inches&gt;]
+<strong>-d</strong> &lt;date&gt; <strong>-D</strong> <strong>-o</strong> &lt;outputfile&gt;
+<strong>-t</strong> &lt;template&gt; <strong>-b</strong> <strong>-C</strong> <strong>-w</strong> <strong>-h</strong> <strong>-m</strong> <strong>-M</strong> <strong>-O</strong> <strong>-p</strong>
+<strong>-y</strong> &lt;page_offset_inches&gt;  <strong>-l</strong> &lt;line_width_points&gt;]
+<strong>--create-dvd-inside</strong>
+<strong>--create-dvd-outside</strong>
+<strong>--double-case</strong>
+<strong>--create-cdlabel</strong>
+<strong>--rotate-endcaps</strong>
+<strong>--plaque-color</strong> &lt;r,g,b&gt;
+<strong>--category-color</strong> &lt;r,g,b&gt;
+<strong>--subcategory-color</strong> &lt;r,g,b&gt;
+<strong>--text-color</strong> &lt;r,g,b&gt;
+<strong>-n</strong> &lt;volume/number in set&gt;
+<strong>--rows-columns</strong> &lt;row_count_for_items,column_count_for_items&gt;
+<strong>--tray-overlay</strong> &lt;overlay_epsfile&gt;
+<strong>--tray-overlay-scaleratio</strong> &lt;tray_overlay_image_scaleratio&gt;[,&lt;image_x_offset&gt;,&lt;image_y_offset_inches&gt;]</p>
+<p>
+</p>
+<hr />
+<h1><a name="version">VERSION</a></h1>
+<dl>
+<dt><strong><a name="item_version_4_2e1_2e0_2c_october_2008">Version 4.1.0, October 2008</a></strong>
+
+</dl>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>cdlabelgen's purpose in life is twofold:</p>
+<ul>
+<li><strong><a name="item_traycard">To be run automatically and swiftly from a shell script and
+automatically generate a frontcard and a traycard for a cd--usually
+data archive cd's. The traycard (which goes behind the CD itself) is
+U-shaped and the ends of the CD case bear the label of what the CD is.
+Inside inserts for DVDs are also supported.</a></strong>
+
+<li><strong><a name="item_to_have_a_minimum_of_dependencies_2d_2dcdlabelgen_">To have a minimum of dependencies--cdlabelgen only requires perl.</a></strong>
+
+</ul>
+<p>cdlabelgen was designed to simplify the process of generating labels
+for CD's. It originated as a program to allow auto generation of
+frontcards and traycards for CD's burned via an automated mechanism
+(specifically for archiving data), but has now become popular for
+labelling CD compilations of mp3's, and copies of CDs. Note that
+cdlabelgen does not actually print anything--it just spits out
+postscript, which you can then do with as you please. It can also be
+combined with output from other programs such as ``barcodegen'' - to print
+a barcode as a tray overlay image.</p>
+<p>The latest version of cdlabelgen as well as this document can be
+found at <a href="http://www.aczoom.com/tools/cdinsert/.">http://www.aczoom.com/tools/cdinsert/.</a> The software package
+includes CGI scripts that can be used to serve cdlabelgen over the
+internet.
+An older version may be available at:
+<a href="http://www.red-bean.com/~bwf/software/cdlabelgen/.">http://www.red-bean.com/~bwf/software/cdlabelgen/.</a></p>
+<p>cdlabelgen comes with several eps images for you to use on your
+labels. These images can be found in /usr/local/lib/cdlabelgen or
+/usr/share/cdlabelgen or /opt/lib/cdlabelgen/ or
+/usr/local/share/cdlabelgen, depending on your installation. Included
+are a Recycling icon, an mp3 icon, the Compact Disc icon (with and
+without 'Digital' on it), Tux the penguin, and the new Debian 'swirl'
+logo. Two color background images called Music Notes are also
+available.</p>
+<p>CDs: cdlabelgen prints a 'tongue' as part of the
+traycard. This folds around and is viewable from the front in jewel
+boxes that are entirely clear (CD holder piece is not opaque). If you
+do not have a clear CD holder in your jewel box, you may find it
+easier to just cut the 'tongue' off--it's a bit easier to fold without
+it.</p>
+<p>Paper Sizes: Normal CD cases, Slim CD cases, DVD inside inserts
+can be printed on a letter or A4 sized page.
+CD/DVD Envelopes and DVD outside inserts will not fit on a
+letter sized paper, a larger paper size will be needed to make it fit.</p>
+<p>cdlabelgen requires Perl Version 5.003 or greater. Ghostscript is not
+required, but <strong>is</strong> recommended so that you can test out your labels
+without wasting paper.</p>
+<p>
+</p>
+<hr />
+<h1><a name="switches">SWITCHES</a></h1>
+<dl>
+<dt><strong><a name="item__2dc_2c__2d_2dcategory__3ccategory_3e"><strong>-c, --category &lt;category</strong>&gt;</a></strong>
+
+<dd>
+<p>Set the category (title) for the CD</p>
+</dd>
+</li>
+<dt><strong><a name="item__2ds_2c__2d_2dsubcategory__3csubcategory_3e"><strong>-s, --subcategory &lt;subcategory</strong>&gt;</a></strong>
+
+<dd>
+<p>Set the subcategory (subtitle) for the CD</p>
+</dd>
+</li>
+<dt><strong><a name="item__2di_2c__2d_2ditems__3citems_3e"><strong>-i, --items &lt;items</strong>&gt;</a></strong>
+
+<dd>
+<p>'items' should be a '%' separated list of items to print on the
+traycard of the CD.  Note that if the number of items are too many
+to fit on the tray card, cdlabelgen will leave out some items at the end.
+cdlabelgen automatically flows the items into 2, 3, 4, or 5 columns
+and scales the fontsize accordingly, unless the <code>-P</code> option is used.
+You can insert blank lines by
+inserting 2 percent signs in a row into the items list.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2df_2c__2d_2ditems_2dfrom_2dfile__3cfilename_3e"><strong>-f, --items-from-file &lt;filename</strong>&gt;</a></strong>
+
+<dd>
+<p>Get item names from file named filename. Each item should be on its
+own line separated by carriage returns. 
+cdlabelgen automatically flows the items into 2, 3, 4, or 5
+columns and scales the fontsize or clips the items as needed.
+You can insert blank lines by placing blank lines between items in this file.</p>
+</dd>
+<dd>
+<p>Special commands can be embedded in the file, all of these commands
+should be present starting at the first column of the line.
+The codes are used to change the font for an item, the code itself is not
+printed in the output.</p>
+</dd>
+<dd>
+<pre>
+ {#BI}     - make the item bold and italic
+ {#I}      - make the item italic
+ {#B}      - make the item bold
+ {#M}      - make the item mono-spaced (Courier font)
+ {#MB}     - make the item monospaced and bold (Courier-Bold font)</pre>
+</dd>
+<dd>
+<p>Example:</p>
+</dd>
+<dd>
+<pre>
+ {#MB}    Text 1 Item
+would print the line &quot;    Text 1 Item&quot; in a monospaced bold font.</pre>
+</dd>
+</li>
+<dt><strong><a name="item__2dv_2c__2d_2dcover_2ditems__3cnumber_of_items_for"><strong>-v, --cover-items &lt;number_of_items_for_cover</strong>&gt;</a></strong>
+
+<dd>
+<p>Normally, all the items are printed on the tray card.
+But if you have a large number of items, you may wish to print some items
+on the cover, and rest on the tray card.
+This option provides a way of specifying how many items should be printed
+on the cover. Default is 0 (i.e., print no item on the cover, print all
+items on the tray). The items to be printed on the cover are taken from
+the list of items, from the top of the list.
+Note that if the number of items is too many to fit on the cover,
+it will result in items being dropped. As of Jan 2002, around
+250-300 items can be fitted on the cover or the tray, depending on
+whether a title/subtitle/date is used or not.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2dd_2c__2d_2ddate__3cdate_3e"><strong>-d, --date &lt;date</strong>&gt;</a></strong>
+
+<dd>
+<p>Set the date to be used as 'date' if not set or not overridden with
+the <strong>-D</strong> flag, today's date will be used (default is today's
+date). Use this option if you don't like cdlabelgen's default format of
+YYCC-MM-YY, for example.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2dd_2c__2d_2dno_2ddate"><strong>-D, --no-date</strong></a></strong>
+
+<dd>
+<p>Do not print <strong>any</strong> date (overrides <strong>-d</strong> as well)</p>
+</dd>
+</li>
+<dt><strong><a name="item__2de_2c__2d_2dcover_2dimage__3ccover_epsfile_3e"><strong>-e, --cover-image &lt;cover_epsfile</strong>&gt;</a></strong>
+
+<dd>
+<p>Filename of eps file to print on cover. Note that cdlabelgen requires
+that the eps file contain a proper '%%BoundingBox LLx LLy URx URy'
+declaration according to the PostScript Document Structuring
+Conventions. cdlabelgen uses this line to determine the dimensions of
+the eps graphic so that it can position it appropriately on the
+cover. Note that cdlabelgen first looks for this file in your working
+directory. If it doesn't find it there, it will look in the list of
+directories where the default eps files are stored (see
+@where_is_the_template). This makes it easy to use the images shipped
+with cdlabgelgen without typing miles of pathnames.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2ds_2c__2d_2dcover_2dimage_2dscaleratio__3ccover_"><strong>-S, --cover-image-scaleratio &lt;cover_eps_scaleratio [,image_x_offset,image_y_offset_inches]</strong>&gt;</a></strong>
+
+<dd>
+<p>The ratio by which you want to scale the epsfile that appears on the
+cover. If you omit this flag, cdlabelgen assumes a scaleratio of
+1.0. This flag allows you to squeeze larger graphics into the cover or
+expand smaller graphics to fill the cover. Scaleratio must be a number
+(int or float).</p>
+</dd>
+<dd>
+<p>If the scale value passed is 0 (or 0.0), then the
+logo is used as a background image - it will be scaled as required
+to fit the entire cover.</p>
+</dd>
+<dd>
+<p>The -S option also takes optional translate arguments.
+Normally images are printed on the cover and the tray so that the
+bottom-right of the image is anchored to the bottom-right of the cover or
+tray. To move the images away from the bottom and right borders, use this
+option. For example, to leave two inches of gap between the image and the
+bottom border, and 0.5 inches from the left border, and use 1.0
+scaleratio, use this: <strong>-S 1.0,-2,0.5</strong></p>
+</dd>
+<dd>
+<p>This offset only applies when the image is being used as a logo - i.e.,
+image is not being used as background to fill the entire cover or tray.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2de_2c__2d_2dtray_2dimage__3ctray_epsfile_3e"><strong>-E, --tray-image &lt;tray_epsfile</strong>&gt;</a></strong>
+
+<dd>
+<p>Filename of eps file to print on traycard. Note that cdlabelgen
+requires that the eps file contain a proper '%%BoundingBox LLx LLy URx
+URy' declaration according to the PostScript Document Structuring
+Conventions. cdlabelgen uses this line to determine the dimensions of
+the eps graphic so that it can position it appropriately on the
+cover. Note that cdlabelgen first looks for this file in your working
+directory. If it doesn't find it there, it will look in the list of
+directories where the default eps files are stored (see
+@where_is_the_template). This makes it easy to use the images shipped
+with cdlabgelgen without typing miles of pathnames.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2dt_2c__2d_2dtray_2dimage_2dscaleratio__3ctray_ep"><strong>-T, --tray-image-scaleratio &lt;tray_eps_scaleratio [,image_x_offset,image_y_offset_inches]</strong>&gt;</a></strong>
+
+<dd>
+<p>The ratio by which you want to scale the epsfile that appears on the
+traycard. If you omit this flag, cdlabelgen assumes a scaleratio of
+1. This flag allows you to squeeze larger graphics into the traycard or
+expand smaller graphics to fill the traycard. Scaleratio must be a 
+positive number (int or float) specifying the scale.</p>
+</dd>
+<dd>
+<p>If the scale value passed is the word <strong>fill1</strong>, then the image is used as a
+background - it is scaled so that it completely fills the interior tray
+card region.  The value <strong>0</strong> (or 0.0) works same as the
+<strong>fill1</strong> argument.</p>
+</dd>
+<dd>
+<p>If the value passed is the word <strong>fill2</strong>, then the image is used as a
+background to fill more than just the tray.
+For normal CD cases, the image is scaled so that it completely fills
+both the tray card
+region, and the two endcaps (but not the extreme right-hand 'tongue-cap')
+for normal cd cases.
+For Slim CD cases or DVD Inside/Outside covers, the tray image will fill
+both the tray and cover regions (including any spines).
+For directly printing on a CD (--create-cdlabel), fill2
+option works like the fill1 option.</p>
+</dd>
+<dd>
+<p>The -T option also takes optional translate arguments.
+Normally images are printed on the cover and the tray so that the
+bottom-right of the image is anchored to the bottom-right of the cover or
+tray. To move the images away from the bottom and right borders, use this
+option. For example, to leave two inches of gap between the image and the
+bottom border, and 0.5 inches from the left border, and use 1.0
+scaleratio, use this: <strong>-T 1.0,-2,0.5</strong></p>
+</dd>
+<dd>
+<p>This offset only applies when the image is being used as a logo - i.e.,
+image is not being used as background to fill the entire cover or tray.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2do_2c__2d_2doutput_2dfile__3coutputfile_3e"><strong>-o, --output-file &lt;outputfile</strong>&gt;</a></strong>
+
+<dd>
+<p>If the <strong>-o</strong> flag is used, cdlabelgen prints to outputfile instead of STDOUT.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2dt_2c__2d_2dtemplate__3ctemplate_3e"><strong>-t, --template &lt;template</strong>&gt;</a></strong>
+
+<dd>
+<p>Specify explicitly which template to use. This is useful if you need
+to debug the PostScript code in the
+template, use a different template, or if you have created
+your own template to use in lieu of the one provided with
+cdlabelgen.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2db_2c__2d_2dno_2dtray_2dplaque"><strong>-b, --no-tray-plaque</strong></a></strong>
+
+<dd>
+<p>Suppresses printing of the Plaque on the traycard, thus allowing you
+to either fit even more items on the traycard, or to use a slightly 
+larger font size for the items.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2dc_2c__2d_2dno_2dcover_2dplaque"><strong>-C, --no-cover-plaque</strong></a></strong>
+
+<dd>
+<p>Suppresses printing of the plaque on the front cover, thus allowing 
+a cover image that fills the front cover, but still displaying category
+and sub-category information in the other usual places.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2dh_2c__2d_2dhelp"><strong>-h, --help</strong></a></strong>
+
+<dd>
+<p>print out the usage message</p>
+</dd>
+</li>
+<dt><strong><a name="item__2dw_2c__2d_2dtray_2dword_2dwrap"><strong>-w, --tray-word-wrap</strong></a></strong>
+
+<dd>
+<p>Enables word wrapping of the items that print on the traycard. Note
+that this is *not* extensively tested and may be buggy! Make sure that
+you preview your label before printing it if you use this flag.</p>
+</dd>
+<dd>
+<p>If there is a problem with <code>-w</code>, the best option right now is to split
+lines in the input itself, and to omit the <code>-w</code> option.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2dm_2c__2d_2dslim_2dcase"><strong>-m, --slim-case</strong></a></strong>
+
+<dd>
+<p>Creates covers suitable for use in slim cd-cases, this means
+no tray card (the tray card is now the inside front cover). 
+This creates a two page, folding cover insert. This could also be
+used in normal cd cases as an inside insert.</p>
+</dd>
+<dd>
+<p>Slim case option can be used with outside dvd inserts
+( --create-dvd-outside ) also - in which case the outside insert
+is created for half-height DVD case.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2do_2c__2d_2doutside_2dfoldout"><strong>-O, --outside-foldout</strong></a></strong>
+
+<dd>
+<p>Output slim cd cover cases (or dvd inserts) with the order of the
+pages switched so the folding line lies on the outside
+of a normal case. Can be used when printing either the slim-cd-case or
+dvd-inside inserts.</p>
+</dd>
+<dd>
+<p>This option is best used along with option -m (--slim-case) or
+--create-dvd-inside.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2drotate_2dendcaps"><strong>--rotate-endcaps</strong></a></strong>
+
+<dd>
+<p>Endcap text is rotated by 180 degrees, to flip the text around.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2dm_2c__2d_2dcreate_2denvelope"><strong>-M, --create-envelope</strong></a></strong>
+
+<dd>
+<p>Creates covers suitable for use as envelopes for a CD. Guide lines
+are printed, to aid in folding the printout correctly.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dcreate_2ddvd_2dinside"><strong>--create-dvd-inside</strong></a></strong>
+
+<dd>
+<p>Creates inserts suitable for use as inside insert for a normal DVD case.
+Guide lines are printed, to aid in folding the printout correctly.
+Note: DVD inserts may not print fully on Letter or A4 sized paper
+printers; it may require larger paper sizes.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dcreate_2ddvd_2doutside"><strong>--create-dvd-outside</strong></a></strong>
+
+<dd>
+<p>Creates inserts suitable for use as outside cover inserts
+for a normal DVD case.
+Guide lines are printed, to aid in folding the printout correctly.
+Note: DVD inserts may not print fully on Letter or A4 sized paper
+printers; it may require larger paper sizes.</p>
+</dd>
+<dd>
+<p>Slim case option ( --slim-case ) can be used with outside dvd inserts
+also - in which case the outside insert is created for half-height DVD case.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2ddouble_2dcase"><strong>--double-case</strong></a></strong>
+
+<dd>
+<p>Create covers for double-sided DVD cases that hold 6 DVDs.
+Only double-width DVD cases are support, double-width CD cases are not
+supported.
+Therefore, using --double-case also implies the --create-dvd-outside option.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dcreate_2dcdlabel"><strong>--create-cdlabel</strong></a></strong>
+
+<dd>
+<p>For directly printing on a CD or DVD. As of January 2005, there are
+inkjets printers that can print on certain types of blank CD/DVD discs.
+Only a small number of items can be printed on the CD, and the number of
+characters in the title and subtitle is also limited.
+Always check the output visually by using PostScript viewers or printing
+on paper, before printing on the CD.</p>
+</dd>
+<dd>
+<p>With this option, the top portion of the disc represents the ``cover'' area -
+so arguments related to the cover:
+title (--category), subtitle (--subcategory), --no-cover-plaque,
+--cover-items, --cover-image, etc all apply to the top area.
+The bottom portion of the disc represents the ``tray'' area, so arguments
+related to the tray:
+--no-tray-plaque, --tray-image, etc all apply to the bottom area.
+The date (--date) string, if present, is printed along the bottom curved
+edge of the disc.</p>
+</dd>
+<dd>
+<p>Background images can be specified using the --cover-image option, 
+modified as need by the --cover-image-scaleratio.
+If --tray-image is also specified, note that the cover image is printed
+first, then the tray image overwrites the cover image. The title/items text
+is then finally printed over all the images.</p>
+</dd>
+<dd>
+<p>The --no-tray-plaque and/or --no-cover-plaque (along with
+--cover-items) option is also recommended with --create-cdlabel,
+otherwise there may be no space for any items to be printed on the disc.</p>
+</dd>
+<dd>
+<p>The --clip-items option is also recommended.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2dp_2c__2d_2dclip_2ditems"><strong>-p, --clip-items</strong></a></strong>
+
+<dd>
+<p>Enables clipping of items; uses fixed font size for all items.
+Normally, the template.ps used by cdlabelgen will try to fit an
+item in a given column by reducing the font size if needed. This is
+ok if done for one or two items, but if done too often, it makes the
+tray card look ugly, with text of varying font sizes.</p>
+</dd>
+<dd>
+<p>Use this option to use a fixed width font for all items. If the item
+is too large to fit in a column, the text will be clipped instead.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2dy_2c__2d_2dpage_2doffset__5b_3cpage_x_offset_in"><strong>-y, --page-offset [&lt;page_x_offset_inches,]&lt;page_y_offset_inches</strong></a></strong>
+
+<dd>
+<p>Use this to move the entire output up or down (y_offset), to make the
+output fit on appropriate sized paper. For letter sized paper,
+0.8 works well, and for
+A4 paper, 1.5 works well. The value is in units of inches.
+An optional X-axis offset can also be specified.
+Default values: 1 inch for X-axis, 0.8 inches for Y-axis.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2dl_2c__2d_2dline_2dwidth__3cline_width_points_3e"><strong>-l, --line-width &lt;line_width_points</strong>&gt;</a></strong>
+
+<dd>
+<p>Specify size in points of 
+the edge and interior lines of the cover and tray card.
+If this is 0, then the lines are omitted for both the cover and tray
+(but guide cut lines are still printed). The size is specified in points
+(1 point is 1/72 inch).</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dplaque_2dcolor__3cr_2cg_2cb_3e"><strong>--plaque-color &lt;r,g,b</strong>&gt;</a></strong>
+
+<dd>
+<p>Specify a color to fill plaque.
+Color must be specified using the rgb components, each value
+should be between 0 and 255.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dcategory_2dcolor__3cr_2cg_2cb_3e"><strong>--category-color &lt;r,g,b</strong>&gt;</a></strong>
+
+<dd>
+<p>Specify a color for category.
+Color must be specified using the rgb components, each value
+should be between 0 and 255.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dsubcategory_2dcolor__3cr_2cg_2cb_3e"><strong>--subcategory-color &lt;r,g,b</strong>&gt;</a></strong>
+
+<dd>
+<p>Specify a color for subcategory.
+Color must be specified using the rgb components, each value
+should be between 0 and 255.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dtext_2dcolor__3cr_2cg_2cb_3e"><strong>--text-color &lt;r,g,b</strong>&gt;</a></strong>
+
+<dd>
+<p>Specify a color for text - this is used for the list of items, and the
+date display under the plaque and in the end-caps.
+Color must be specified using the rgb components, each value
+should be between 0 and 255.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2dn_2c__2d_2dnumber_2din_2dset__3cstring_3e"><strong>-n, --number-in-set &lt;string</strong>&gt;</a></strong>
+
+<dd>
+<p>Append volume information to the end of the date string.  This should
+be a single string.  If used in conjuction with <code>-D</code>, it will be in
+place of the date; otherwise, it is appended to the date as `` -
+&lt;number-in-set&gt;''</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2drows_2dcolumns__3crow_count_for_items_2ccolu"><strong>--rows-columns &lt;row_count_for_items,column_count_for_items</strong>&gt;</a></strong>
+
+<dd>
+<p>The --rows-columns options forces the list of items to be printed using
+that many rows, and that many columns.
+Both numbers have to be provided, no spaces, for example:
+--rows-columns=11,3</p>
+</dd>
+<dd>
+<p>The list of items is laid out in top-down, left-to-right fashion.
+Use blank items in the input, to get appropriately aligned columns.</p>
+</dd>
+<dd>
+<p>--rows-columns applies to the list of items wherever they are printed - normally
+on the tray only, but may include cover, or the top and bottom portions
+of the round printouts for direct CD label printing.
+Same values apply to all these variations,
+so if you need different number of rows/columns for cover vs
+tray, you can use two different runs of cdlabelgen, to get two postscript
+files, and pick the cover from one printout, and tray from the other.
+This will work for jewel-case inserts, but may not work for direct CD
+label printing.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dtray_2doverlay_overlay_epsfile"><strong>--tray-overlay overlay_epsfile</strong></a></strong>
+
+<dd>
+<p>Filename of eps file to print as overlay on traycard. This image
+is printed over the background image (tray-image) as well as the list 
+of items. Therefore, this is useful for things like barcodes.
+In terms of EPS file requirements, see the --tray-image option
+description.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dtray_2doverlay_2dscaleratio_tray_overlay_ima"><strong>--tray-overlay-scaleratio tray_overlay_image_scaleratio[,image_x_offset,image_y_offset_inches]</strong></a></strong>
+
+<dd>
+<p>The ratio by which you want to scale the epsfile that is used with the
+--tray-overlay option, and optionally to translate the overlay.
+Normally overlay image is printed on the tray so that the
+bottom-right of the image is anchored to the bottom-right of the
+tray. To move the images away from the bottom and right borders, use this
+option. For example, to leave 0.1 inches of gap between the image and the
+bottom border, and 0.2 inches from the right border, and use 1.0
+scaleratio (no scaling), use this: <strong>--tray-overlay-scaleratio 1.0,-0.2,0.1</strong></p>
+</dd>
+</li>
+</dl>
+<p>
+</p>
+<hr />
+<h1><a name="examples">EXAMPLES</a></h1>
+<pre>
+    cdlabelgen -c &quot;My Filesystem&quot; 
+                 -s &quot;/usr/local/foo&quot;
+                 -e postscript/recycle.eps &gt; foo.ps</pre>
+<pre>
+    cdlabelgen -c &quot;title of cd&quot;
+                 -s &quot;subtitle&quot;
+                 -i &quot;Item 1%and Item 2%a third item here perhaps&quot;
+                 -e postscript/recycle.eps -o bar.ps</pre>
+<pre>
+    cdlabelgen -c &quot;Fitz&quot;
+                 -s &quot;home directory&quot;
+                 -o qux.ps</pre>
+<pre>
+    cdlabelgen -c &quot;Backups&quot;
+                 -s &quot;home directory&quot;
+                 -n &quot;4 of 5&quot;</pre>
+<pre>
+    Direct printing on a CD or DVD, if file &quot;example5.txt&quot; has list of items:
+    cdlabelgen --clip-items --no-tray-plaque --date &quot;Jan 2005&quot;
+      -c &quot;Collections 12&quot; -s &quot;- english songs -&quot;
+      --cover-image &quot;music2.eps&quot; --cover-image-scaleratio 0.0
+      --tray-image &quot;mp3.eps&quot; --tray-image-scaleratio 0.5,-0.5,2
+      --page-offset 0.5,0.5 -f example5.txt -o test.ps</pre>
+<p>
+</p>
+<hr />
+<h1><a name="character_encodings__using_ogonkify">CHARACTER ENCODINGS - using ogonkify</a></h1>
+<p>cdlabelgen uses the Helvetica family of fonts for various text items,
+using the default encoding of ISO-Latin1.</p>
+<p>To use other encodings, the ``ogonkify'' program can be used; this is a
+package available at <a href="http://www.pps.jussieu.fr/~jch/software/ogonkify/">http://www.pps.jussieu.fr/~jch/software/ogonkify/</a>
+The output from cdlabelgen can be piped into ogonkify, example for Latin2
+encoding:</p>
+<pre>
+   cdlabelgen &lt;args&gt;  | ogonkify -H -eL2    &gt; &lt;outputfilename&gt;</pre>
+<p>See the man page for ogonkify for other possible values for the encoding.</p>
+<p>Hint: if you always work with a particular encoding, you can just
+run ogonkify on template.ps - and use the output as the new template.ps.</p>
+<pre>
+   ogonkify -H -eL2 template.ps &gt; template-enc.ps</pre>
+<p>This way ogonkify has to be run only once, cdlabelgen output will
+contain the correctly encoded fonts from the modified template.ps. Use
+the -t cdlabelgen option to specify the new template-enc.ps file, or save
+the old template.ps and renmae template-enc.ps to template.ps.</p>
+<p>
+</p>
+<hr />
+<h1><a name="printing">PRINTING</a></h1>
+<p>When using tools such as Adobe Acrobat to print the .ps or a .pdf file,
+make sure that ``Fit To Paper'' option is unchecked.
+Also uncheck any option that will perform scaling up or down of the
+cdlabelgen output file.</p>
+<p>Failure to do so will result in incorrect size printouts.</p>
+<p>Paper Sizes: Normal CD cases, Slim CD cases, DVD inside inserts
+can be printed on a letter or A4 sized page.
+CD/DVD Envelopes and DVD outside inserts will not fit on a
+letter sized paper, a larger paper size will be needed to make it fit.</p>
+<p>When using different sized paper, experimentation with the 
+<strong>-y</strong> (also: <strong>--page-offset</strong>) [&lt;page_x_offset_inches,]&lt;page_y_offset_inches&gt;
+option 
+may be required to place the image in the printable region of the paper.</p>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>Avinash Chopde &lt;<em><a href="mailto:avinash@aczoom.com">avinash@aczoom.com</a></em>&gt;</p>
+<p>Original author:
+B. W. Fitzpatrick &lt;<em><a href="mailto:fitz@red-bean.com">fitz@red-bean.com</a></em>&gt;</p>
+<p>
+</p>
+<hr />
+<h1><a name="thanks">THANKS</a></h1>
+<pre>
+    - Karl Fogel, for general encouragement and that free software vibe
+    - Adam Di Carlo, for bug testing, help and making the .deb
+    - Greg Gallagher, for bug testing, coding, and tons of suggestions
+    - Goran Larsson, for feedback and date fixes
+    - Jens Claussen, for the patch to allow arbitrary ISO-Latin1 characters
+    - Bernard Quatermass, for contributing several excellent new features
+    - Sebastian Wenzler &lt;sick@home.and.drunk.at&gt; for reports, tests, RPM ['01]
+    - Peter Bieringer &lt;pb@bieringer.de&gt; for RPM .spec file ['02]
+    - Ronald Rael Harvest &lt;number6@cox.net&gt; for original envelope template ['02]
+    - Alessandro Dotti Contra &lt;alessandro.dotti@libero.it&gt; for color support,
+        man page and other improvements ['02]
+        Mathias Herberts
+    - Mathias Herberts &lt;Mathias.Herberts@iroise.net&gt;, for slim cdcase foldout
+    - Stephan Grund &lt;Stephan.Grund@isst.fraunhofer.de&gt;, for monospaced
+      font and for rotated-end-caps text support
+    - Dominique Dumont &lt;domi.dumont@free.fr&gt;, for half-height DVD case support
+        (patch forwarded by Juan Manuel Garcia Molina &lt;juanma@debian.org&gt;)
+    - Peter Bieringer &lt;pb@bieringer.de&gt; for testing CD label printint ['05]
+    - Andras Salamon &lt;asalamon@chello.hu&gt; for double-width DVD support ['08]</pre>
+<p>
+</p>
+<hr />
+<h1><a name="todo">TODO</a></h1>
+<pre>
+ ** Word wrap does not work well at all. It will clip lines, or it will
+    auto-reduce the font size, both of which option look bad.</pre>
+<pre>
+ ** Ability to change the text style on a given line:
+    {#B}Track#  {#P}Title   {#I} Text...
+    [Workaround available: just use multi columns input, use blank
+     lines to spread out input items into columns]</pre>
+<pre>
+ ** Ability to select or specify fonts for the text/items</pre>
+
+</body>
+
+</html>

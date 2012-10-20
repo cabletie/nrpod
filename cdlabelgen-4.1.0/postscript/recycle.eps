@@ -1,0 +1,164 @@
+%!PS-Adobe-2.0 EPSF-1.2
+%avinash original, added 7 pix border on all sides: 0 1 79 79
+%%BoundingBox: -7 -6 86 86
+%%Title: (recycle.eps)
+%%BeginPreview: 80 79 1 79
+% 0000000ffffff0000000
+% 0000007ffffffe000000
+% 000000ffffffff000000
+% 000001f1111f9f800000
+% 000003c0001e03c00000
+% 000003d5557d55c00000
+% 00000780003801e00000
+% 00000f51517951f03000
+% 00000e00007000707000
+% 00001f5555f55579e000
+% 00001c0001e0003fc000
+% 00003d1111d1113fc000
+% 0000380003c0001f8000
+% 00007d5557d5555f8000
+% 0000f00007e000070000
+% 0000f15157f1515f0000
+% 0001e0000ff0001e0000
+% 0001d5555e7d555c0000
+% 0003c0001c38003c0000
+% 000791113c3d11380000
+% 00070000381c00780000
+% 000f5555783f55700000
+% 000e000070ffffe07000
+% 001f5151f1ffffe0f800
+% 000fc001e7ffffc3f800
+% 0007f555c000000ffc00
+% 0001f803c000001f9e00
+% 00007f138000007f1e00
+% 00001f87800001f80f00
+% 00000ff7000007f55700
+% ffffe3fe00000fc00780
+% fffff0fe00003f515380
+% fffff83c00003c0003c0
+% 3f55781c00003d5555e0
+% 0f003c0000001c0000e0
+% 0f111c0000001f1111f0
+% 0e001e0000000f000070
+% 1f555f00000007555578
+% 1c000700000007800038
+% 3d515780000003d1517c
+% 78000380000003c0001e
+% 755557c0000001d5555e
+% 700007c0000001e0000f
+% f1111fe0000004f11117
+% e0000ff000000c700007
+% f5555ff000000c7d5557
+% e0001c7800001c380007
+% 71517c3800001c3d515f
+% 7000380c00003c1c000e
+% 7d55780000003c1f555e
+% 3800f00000007c0f007c
+% 3d11ffffff80fffffffc
+% 1c01ffffff80fffffff8
+% 1f55ffffff81fffffff8
+% 0f03c0000181c00000f0
+% 0757d1515183d15151e0
+% 078700000183800001e0
+% 03df55555587d55555c0
+% 03ce0000018f000003c0
+% 01df1111118f11111380
+% 01fc0000019e00000780
+% 00fd5555559f55555f00
+% 00780000018e00000e00
+% 00795151518f51515e00
+% 003c0000018700001c00
+% 003d55555587d5557c00
+% 001e0000018380007800
+% 001f11111183d111f800
+% 000fc0000181e003f000
+% 0007ffffff80ffffe000
+% 0003ffffff80ffffc000
+% 00003fffff807ffc0000
+% 0000000000007c000000
+% 0000000000003c000000
+% 0000000000001c000000
+% 0000000000001c000000
+% 0000000000000c000000
+% 0000000000000c000000
+% 00000000000004000000
+%%EndImage
+%%EndPreview
+save
+countdictstack
+mark
+newpath
+/showpage {} def
+%!PS-Adobe-1
+%%
+%% Taken from audio-tape.ps by Jamie Zawinski <jwz@jwz.org>
+
+/bdef { bind readonly def } bind readonly def
+
+%% A recycle logo, by hdavids@mswe.ms.philips.nl.
+%% Colorized by John Werner <werner.wbst311@xerox.com>
+/arrowback
+{
+  17.32	 62.32 moveto
+ -24.00	 62.32 -45.00  25.94 11.6 arcto 4 {pop} repeat
+ -45.00	 25.94 lineto
+ -19.02	 10.94 lineto
+  17.32	 73.89	34.50  44.13 11.6 arcto 4 {pop} repeat
+  34.50	 44.13 lineto
+  41.43	 48.13 lineto		% start arrowhead
+  28.15	 25.13 lineto		% point of arrow
+   1.59	 25.13 lineto		% inner extreme
+   8.52	 29.13 lineto		% end of arrowhead
+   0.00	 43.88 lineto
+  gsave
+    0.5 0.0 0.5 0.0 setcmykcolor	% dark green
+    fill				% fill the symbol
+  grestore
+  stroke				% now outline it in prevailing color
+} bdef
+
+/arrowfront
+{
+ -17.32	 62.32 moveto
+  24.00	 62.32	34.50  44.13 11.6 arcto 4 {pop} repeat
+  34.50	 44.13 lineto
+  41.43	 48.13 lineto		% start arrowhead
+  28.15	 25.13 lineto		% point of arrow
+   1.59	 25.13 lineto		% inner extreme
+   8.52	 29.13 lineto		% end of arrowhead
+ -17.32	 73.89 -45.00  25.94 11.6 arcto 4 {pop} repeat
+ -45.00	 25.94 lineto
+ -19.02	 10.94 lineto
+   0.00	 43.88 lineto
+  gsave
+    0.5 0.0 0.5 0.0 setcmykcolor	% dark green
+    fill				% fill the symbol
+  grestore
+  stroke				% now outline it in prevailing color
+} bdef
+
+/recycle
+{
+  gsave
+    0.015 0.015 scale
+    4 setlinewidth
+    arrowback
+    120 rotate
+    arrowfront
+    120 rotate
+    arrowfront
+  grestore
+} bdef
+
+
+% For viewing purposes
+%200 200 translate
+%200 200  scale 
+%300 300  scale 
+40 40  scale 
+1 1 translate
+recycle
+cleartomark
+countdictstack exch sub { end } repeat
+restore
+showpage

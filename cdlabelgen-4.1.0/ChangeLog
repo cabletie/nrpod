@@ -1,0 +1,859 @@
+2009-11-25
+
+  * Version still 4.1.0, no change to cdlabelgen
+
+  * cdinsert.pl 3.21 added -sPAPERSIZE= to ps2pdf so A4 PDFs can be
+    correctly created.
+
+  * cdinsert.pl now supports "Omit title/subtitle from Cover" option.
+
+  * Removed RPM package - using Ubuntu desktop right now, and the
+    rpmbuild -ta cdlabelgen-n.n.n.tgz
+    command fails at the check files stage, seems like no .rpm was created.
+    So only .tgz available now.
+
+  * cdinsert.pl comment added for fixing bug in QRcode.pm
+
+2008-10-25
+
+  4.1.0
+
+  * Create covers for double-sided DVD cases that hold 6 DVDs.
+    --double-case option now available, to be used with dvd-outside option.
+    Thanks to Andras Salamon <asalamon@chello.hu> for this patch.
+
+  * cdinsert.pl changed to handle new cgi_error() processing
+    from CGI.pm - also don't use CGI.pm 3.15 - has bug in handling POST_MAX,
+    large posts will peg CPU to 100%. And edited the .tmpl template files
+    to display links to GIF/PDF/PS only if those files have size > 0 bytes.
+
+  * 2008-11-05 Make RPM version package available, rebuilt all packages.
+    
+
+2007-08-26
+
+  4.0.0
+
+  * --tray-overlay option added - use this to overlay a EPS file onto the
+      tray, for example, a barcode image.
+      --tray-overlay-scaleratio option may be used, it has arguments:
+      <eps_scaleratio [,image_x_offset,image_y_offset_inches]>
+    The barcode utility, barcodegen, can be used with above option
+    to print barcodes in cdinserts - GD::Barcode::Image
+    Requires that GD, GD::Barcode, Image::Magick be installed on the system 
+    The online cdinsert.pl script also updated to offer barcode printing.
+
+  * June 2007: form.tmpl now has makegif checked - default is now to
+    create a GIF image
+
+  * Apr 2007: cdinsert.pl now used to display initial form, as well as a
+    filled-in form to allow for easy corrections/resubmits on the done page.
+    All templates changed to use HTML::Template
+
+  * Apr 2007: cdinsert.pl 2.01 checks for null input characters improved, also
+    save input file in raw format before processing it
+    
+
+2005-08-23
+
+  3.6.0
+  * --rows-columns=r,c will force all items to be fit in "c" columns, with
+    each column having "r" lines (rows).
+
+  * Makefile: use INSTALL_FILE to install man page
+
+2005-01-16
+
+  3.5.0
+  * CD Label support - print directly on the CD or DVD
+  * --page-offset now accepts an optional X-axis offset also
+  	--page-offset [xoffset,]yoffset
+
+2004-12-12
+
+  3.1.0
+  * Fix cdinsert.pl CGI script to use PAPERSIZE option for A4 paper
+
+  * Slim Case now applies to DVD outside also - creates outside inserts
+    for half-height DVD cases  - driven by these arguments:
+    	--create-dvd-outside --slim-case
+
+  * --slim-case to be used instead of --create-slim-cover (deprecated)
+
+  * End Cap text can now be rotated (flipped), --rotate-end-caps
+
+  * {#M} and {#MB} support directives added 
+    {#M} {#MB} {#BI} {#B} {#I} can appear in input text,  to make a line
+    monospaced, monospaced-bold, bold-italic, bold, or italic respectively.
+    Directives must appear in column 1 of line.
+
+  * Added dvdlogo.eps
+
+  * Changed aczone to aczoom
+
+2003-11-15
+
+  3.0.0
+  * DVD outside cover inserts now supported, --create-dvd-outside option
+
+  * Move down the DVD inside insert to fit better on letter and A4 paper
+
+  * trayimage "fill2" now fills all - cover, tray, spine, as appropriate
+
+  * Fixed bug in --outside-foldout and placement of tray image
+
+  * Fixed BoundingBox in divx.eps
+
+  * Date handling changed to use its own font size
+
+2003-11-01
+
+  2.7.0
+  * DVD case inside inserts are now supported, --create-dvd-inside option
+
+2003-06-02
+
+  2.6.1
+
+  2003-07-15
+  Updated spec file to match 2.6.1, received script to create this
+  automatically.
+
+  2003-06-02
+  Updates from Tony Mancill <tmancill@debian.org>, 2 user submitted patches:
+  --no-cover-plaque
+  --number-in-set <string>
+
+2003-05-11
+
+  2.6.0
+
+  Updates from Mathias Herberts:
+  * Adds the option to output slim cd cover cases with the order of the
+    pages switched so the folding line lies on the outside
+    of a normal cd case.
+
+  * Included two logos for DivX and Ogg Vorbis, they come from:
+    Ogg Vorbis      http://w148.de/~mmartin/xifish/  [Marcel Martin]
+    DivX            http://www.divxnetworks.com/press/logos.php
+
+  Updates from Peter Bieringer:
+  * Word-wrap fix
+
+2002-10-26
+
+  2.5.0
+
+  Updates: many from Alessandro Dotti Contra <alessandro.dotti@libero.it>
+
+  cdlablegen:
+  * added support for long options
+  * added some options to choose different colors for plaque background,
+    category, subcategory and text
+  * added a man page
+
+  template.ps:
+  * added support for plaque background color, category text color,
+    subcategory text color and text color
+  * increased normal cd case insert dimensions very slightly for better
+    fit
+  * removed the ISOLatin1 recoding of fonts; added %%BeginProlog DSC
+    comment - this allows piping output through the ogonkify program
+    which can recode in a number of encodings. see man page for more
+    information.
+
+  * removed pod documentation from the script
+
+2002-07-30
+
+  2.4.0
+  cdlabelgen:
+  template.ps:
+  * fill2 background should fill two endcaps only, do not fill the extreme
+    right-hand tongue-cap, since the tongue-cap does not exist in normal
+    cd inserts
+  * added optional image translate arguments for -S and -T to
+    offset cover/tray image as required
+  * added -y: move entire printout up or down; ex: -y 1.5, for A4 paper size
+  * added -l: control width of cover/tray edge lines, 0 skips printing
+    edge lines entirely
+  cdlabelgen:
+  * add /opt/lib/cdlabelgen/ to template search paths
+
+2002-04-02
+
+  2.3.0
+  cdlabelgen:
+  * added: -M option, to print out envelope for a CD
+  template.ps:
+  * support printing of CD envelopes, merged in envelope template sent
+    by Ronald Rael Harvest <number6@cox.net>
+  * added variables to control left/right margins for both cover and tray
+
+2002-03-14
+
+  2.2.1
+  cdlabelgen:
+  * -v <very large number> is no longer an error, instead, all
+    items are printed on cover, none on the tray card.
+  * also added .spec file, from other sources on web, for RPM installs.
+    Use:
+    rpmbuild -ta cdlabelgen-n.n.n.tgz
+    to create RPM [not tested]
+
+2002-01-28
+
+  2.2.0
+  cdlabelgen:
+  * -v option to support splitting items array into items for cover,
+    and items for tray
+  template.ps:
+  * both cover and tray can print list of items, uses two different
+    arrays containing the items
+
+2001-12-01
+
+  2.1.4
+  template.ps:
+  cdlabelgen:
+  * add "fill2" option to fill image in tray and end-caps too
+    in addition to just filling the interior of the tray card
+
+2001-10-25
+
+  2.1.3
+  template.ps:
+  * -s <subban_string> would not print along the spine even when it would fit,
+    Rewrote make_endcap function.
+    Bug Report: "Eric L. Schott" <eschott@psu.edu>
+  cdlabelgen:
+  * word wrap could result in 0 items, now ensures that #items >= 1
+
+2001-07-12
+
+  2.1.2
+  2.1.1
+
+  Updated: by Avinash Chopde <avinash@acm.org>  www.aczoom.com
+
+  cdlabelgen:
+  * fixed bug where -f <file> containing one item only was being skipped;
+    also added code to handle all kinds of end-of-line delimiters in the
+    items file - each line is considered to be one item, so need to
+    handle all kinds of EOLN characters.
+  * -w word wrap was not working, now should work better in all cases
+
+  template.ps:
+  * added larger bottom page offset - hopefully, will work on most
+    printers using A4 size (Europe)
+
+  * -p option now actually clips text (instead of just clipping
+    graphically - used to leave partial letters on the printout)
+    now full characters at the end of the string are omitted if needed
+    to fit the column
+
+2001-07-06
+
+  2.1.0
+
+  Updated: by Avinash Chopde <avinash@acm.org>  www.aczoom.com
+
+  cdlabelgen:
+  * added -p option, pass to template.ps option to clip items
+    instead of auto_reducing them to fit to a column
+
+  template.ps:
+  * major change to the font size and number of columns
+    computation for list of items
+    Added option to clip text instead of auto_reducing text to
+    fit to column
+
+2001-03-26
+  
+  2.0.0
+
+  Updated: by Avinash Chopde <avinash@acm.org>  www.aczoom.com
+
+  cdlabelgen:
+  * allow skipping either -c or -s option (or both)
+  * minor change to insert \n in @items - keeps PostScript DSC
+    compliant (as far as possible!) - line length should be < 255 chars
+    done to keep warning messages away when using GSview
+
+  template.ps:
+  * images can be scaled to completely fill cover and tray card - so
+    they can be used as background images.
+  * added support directives {#BI} {#B} {#I}, appearing in input text,
+    make a line bold-italic, or bold, or italic respectively.
+    Directives must appear in column 1 of line.
+  * bug fix: in n columns output,  if number of items was not a multiple
+    of n, it would leave out the last few items (upto n-1 could be left out).
+    Fixed by changing how_many_items calculation
+  * if ban (-c) or subban (-s) are empty, skip that line from output title
+  * added append function, used to create ban_string_padded
+  * changed most %% to %, added %%Page, %%BeginDocument, etc - DSC compliance.
+    done to keep warning messages away when using GSview
+
+-----------------------------------------------------------------------------
+
+  -+- -+- -+- -+- -+- -+- -+- -+- -+- -+- -+- -+- -+- -+- -+- -+- -+- -+-
+   NOTE: This file was automatically generated by `cvs2cl.pl'.  If you
+   edit this file, your changes will be lost when someone next runs
+   cvs2cl.pl.  See http://www.red-bean.com/~kfogel/cvs2cl.shtml for more.
+  -+- -+- -+- -+- -+- -+- -+- -+- -+- -+- -+- -+- -+- -+- -+- -+- -+- -+-
+
+1999-06-25 04:10  bwf
+
+	* ChangeLog (1.12): shouldn't keep this in cvs anyway.
+
+1999-06-25 01:16  adam
+
+	* debian/changelog (1.6, tags: debian_version_1_5_0-1): update
+	datestamp
+
+	* debian/rules (1.7, tags: debian_version_1_5_0-1): try quoting
+	these new arguments to make
+
+1999-06-24 00:44  adam
+
+	* debian/changelog (1.5), debian/rules (1.6): first cut 1.5.0-1
+
+1999-06-23 17:48  bwf
+
+	* ChangeLog (1.11, tags: debian_version_1_5_0-1), cdlabelgen (1.48,
+	tags: debian_version_1_5_0-1): Fixed bug with parens showing up
+	when user had no items list. Documented eps files in the man page
+	as well.
+
+1999-06-21 19:40  bwf
+
+	* cdlabelgen (1.47, tags:
+	cdlabelgen_1_5_0_soft_release_1999_06_21): typo
+
+1999-06-21 19:35  bwf
+
+	* cdlabelgen (1.46), postscript/template.ps (1.29, tags:
+	debian_version_1_5_0-1, cdlabelgen_1_5_0_soft_release_1999_06_21):
+	Hacked in some primitive word wrapping since a lot of people are
+	clamoring for it.
+
+1999-06-21 19:23  bwf
+
+	* Makefile (1.15, tags: debian_version_1_5_0-1,
+	cdlabelgen_1_5_0_soft_release_1999_06_21): Bumped version number
+	(again) and added new debian eps files.
+
+	* cdlabelgen.lsm (1.6, tags: debian_version_1_5_0-1,
+	cdlabelgen_1_5_0_soft_release_1999_06_21): Bumped version number
+	(again) and modified file size.
+
+1999-06-21 15:33  bwf
+
+	* postscript/debian-color.eps (1.2, tags: debian_version_1_5_0-1,
+	cdlabelgen_1_5_0_soft_release_1999_06_21): Somehow file was
+	corrupted
+
+1999-06-21 15:15  bwf
+
+	* postscript/debian-bw.eps (1.1, tags: debian_version_1_5_0-1,
+	cdlabelgen_1_5_0_soft_release_1999_06_21),
+	postscript/debian-color.eps (1.1): initial import
+
+1999-06-21 03:50  bwf
+
+	* Makefile (1.14): Cleaned up makefile and fixed bug where make
+	fails if directory does not exist (now using install -d). This bug
+	reported by David Bellows (bfootdav@bellsouth.net).
+
+1999-06-20 23:57  bwf
+
+	* cdlabelgen (1.45): Added in a routine to check that no files
+	included are zero length. Although I used a different mechanism
+	since I have changed file handling mechanisms since v. 1.1.3, the
+	patch (and idea) for this was submitted by Joël Soete
+	(jso@europay.com). Joel spent quite a bit of time trying to figure
+	out why his items list wasn't printing only to find out that the
+	items file he was trying to include had nothing in it.
+
+1999-06-20 22:56  bwf
+
+	* ChangeLog (1.10, tags: cdlabelgen_1_5_0_soft_release_1999_06_21),
+	Makefile (1.13), cdlabelgen (1.44), cdlabelgen.lsm (1.5): Cleaned
+	up and improved consistency of error handling
+
+1999-06-20 06:46  bwf
+
+	* cdlabelgen (1.43), postscript/template.ps (1.28): Hacked in the
+	-b flag to suppress printing of the plaque on the traycard. I think
+	we're ready for release now.
+
+1999-06-20 06:20  bwf
+
+	* cdlabelgen (1.42): bumped version number
+
+1999-06-20 06:16  bwf
+
+	* postscript/template.ps (1.27): Upped version #
+
+1999-06-20 05:43  bwf
+
+	* postscript/template.ps (1.26): Now goes from 1 to 4 columns.
+
+1999-06-20 05:36  bwf
+
+	* cdlabelgen (1.41): More documentation
+
+1999-06-20 05:20  bwf
+
+	* cdlabelgen (1.40): Documented new 'tongue' feature
+
+1999-06-20 05:12  bwf
+
+	* cdlabelgen (1.39): Documented -t flag and cleaned up docs a bit
+
+1999-04-20 02:36  bwf
+
+	* Makefile (1.12): Removed '-p' flag from install as it is not
+	supported by either RedHat or Suse's install prog.
+
+1999-04-13 05:29  bwf
+
+	* ChangeLog (1.9): update...
+
+1999-04-13 05:19  bwf
+
+	* cdlabelgen (1.38), postscript/template.ps (1.25): 
+	
+	Applied patches submitted by Bernard Quatermass
+	<bernard@quatermass.co.uk>. From Bernard's email:
+	
+	
+	The template search routine now puts the found directory at the
+	front of the search list for later use.
+	
+	And there is a common routine for finding a file (and for reading
+	its contents) which takes a list of possible directories (as well
+	as using the supplied name unmodified). This is used in all file
+	open/read cases and allows for the localisation of the undef of $/ 
+	and gives the obvious user benefit of being able to specify
+	standard .eps files without having to give the full path.
+	--------------------8-<-------cut-here---------8-<-----------------
+	------ The first is a modification to the template file to provide
+	the extra tongue need for clear trays. The contents will be the
+	same as the endcaps but centered. ... The second modification
+	provides the mean to explicitly specify the location of the
+	template file. This was of great use to me when testing the new
+	template and allows one to override the search path.
+	--------------------8-<-------cut-here---------8-<-----------------
+	------
+
+1999-04-13 03:18  bwf
+
+	* postscript/template.ps (1.24): Added in patch to do arbitrary
+	ISO-Latin1 characters. Patch (from GNUPlot) sent in by Jens
+	Claussen <claussen@db.fmi.uni-passau.de>
+
+1999-04-09 11:52  bwf
+
+	* cdlabelgen (1.37), cdlabelgen.lsm (1.4): minor doc fixes
+
+1999-03-31 14:34  bwf
+
+	* cdlabelgen (1.36): Fixed doc bug as pointed out by  Ulrik Kjems
+
+1999-03-24 23:22  adam
+
+	* debian/control (1.4, tags: debian_version_1_5_0-1,
+	cdlabelgen_1_5_0_soft_release_1999_06_21,
+	cdlabelgen_1_1_3_release_1999_03_25, debian_version_1_1_3-1):
+	update description
+
+	* debian/changelog (1.4, tags:
+	cdlabelgen_1_5_0_soft_release_1999_06_21,
+	cdlabelgen_1_1_3_release_1999_03_25, debian_version_1_1_3-1): first
+	cut 1.1.3
+
+1999-03-24 23:20  bwf
+
+	* cdlabelgen (1.35, tags: cdlabelgen_1_1_3_release_1999_03_25,
+	debian_version_1_1_3-1): Typo in usage msg
+
+1999-03-24 23:08  bwf
+
+	* ChangeLog (1.8, tags: cdlabelgen_1_1_3_release_1999_03_25,
+	debian_version_1_1_3-1): Boing!
+
+1999-03-24 15:55  bwf
+
+	* Makefile (1.11, tags: cdlabelgen_1_1_3_release_1999_03_25,
+	debian_version_1_1_3-1): Added Larry Ewing's (lewing@isc.tamu.edu)
+	penguin to the postscript TARGETS. EPS Version by Neal Tucker.
+
+	* postscript/penguin.eps (1.1, tags: debian_version_1_5_0-1,
+	cdlabelgen_1_5_0_soft_release_1999_06_21,
+	cdlabelgen_1_1_3_release_1999_03_25, debian_version_1_1_3-1): Added
+	Larry Ewing's (lewing@isc.tamu.edu) penguin to the postscript
+	directory. EPS Version by Neal Tucker.
+
+1999-03-24 07:20  bwf
+
+	* ChangeLog (1.7), Makefile (1.10), cdlabelgen (1.34),
+	cdlabelgen.lsm (1.3, tags: cdlabelgen_1_1_3_release_1999_03_25,
+	debian_version_1_1_3-1), postscript/template.ps (1.23, tags:
+	cdlabelgen_1_1_3_release_1999_03_25, debian_version_1_1_3-1):
+	Bumped version numbers, added documentation, prepared for release.
+
+1999-03-24 06:02  bwf
+
+	* postscript/template.ps (1.22): Filling up unused space on the
+	page (Copyright Notice, etc.)
+
+1999-03-23 07:05  bwf
+
+	* cdlabelgen (1.33), postscript/template.ps (1.21): Added support
+	for a different eps image on the back (including its own
+	scaleratio). Need to document this.
+
+1999-03-23 05:59  adam
+
+	* debian/changelog (1.3, tags: debian_version_1_0_2-1),
+	debian/copyright (1.3, tags: debian_version_1_5_0-1,
+	cdlabelgen_1_5_0_soft_release_1999_06_21,
+	cdlabelgen_1_1_3_release_1999_03_25, debian_version_1_1_3-1,
+	debian_version_1_0_2-1), debian/rules (1.5, tags:
+	cdlabelgen_1_5_0_soft_release_1999_06_21,
+	cdlabelgen_1_1_3_release_1999_03_25, debian_version_1_1_3-1,
+	debian_version_1_0_2-1): minor updates for 1.0.2 upstream
+
+1999-03-22 16:09  bwf
+
+	* Makefile (1.9, tags: debian_version_1_0_2-1): Added new eps files
+	to postscript-targets
+
+1999-03-22 16:01  bwf
+
+	* postscript/testfile.ps (1.2): boom!
+
+	* postscript/cd.eps (1.2, tags: debian_version_1_5_0-1,
+	cdlabelgen_1_5_0_soft_release_1999_06_21,
+	cdlabelgen_1_1_3_release_1999_03_25, debian_version_1_1_3-1,
+	debian_version_1_0_2-1): Fixed line width from .5 to 0
+
+1999-03-22 15:48  bwf
+
+	* postscript/cd.eps (1.1), postscript/cdda.eps (1.1, tags:
+	debian_version_1_5_0-1, cdlabelgen_1_5_0_soft_release_1999_06_21,
+	cdlabelgen_1_1_3_release_1999_03_25, debian_version_1_1_3-1,
+	debian_version_1_0_2-1): Finally have some nice CD logos
+
+1999-03-21 20:41  bwf
+
+	* postscript/template.ps (1.20, tags: debian_version_1_0_2-1):
+	Fixed problem with plaque overprinting when banfont or subbanfont
+	scaled down from > width of the tray or cover
+
+1999-03-20 17:11  bwf
+
+	* postscript/template.ps (1.19): Made max_item_size a little
+	smaller
+
+	* cdlabelgen (1.32, tags: debian_version_1_0_2-1): cdlabelgen added
+	another dir to look for template in
+
+1999-03-20 04:58  bwf
+
+	* cdlabelgen (1.30): Removed BETA designation from docs
+
+	* cdlabelgen (1.31, tags: cdlabelgen_1_0_2_release_1999_03_19):
+	Removed TODO's that were done
+
+1999-03-20 04:48  bwf
+
+	* ChangeLog (1.6, tags: debian_version_1_0_2-1,
+	cdlabelgen_1_0_2_release_1999_03_19), Makefile (1.8, tags:
+	cdlabelgen_1_0_2_release_1999_03_19), cdlabelgen (1.29),
+	cdlabelgen.lsm (1.2, tags: debian_version_1_0_2-1,
+	cdlabelgen_1_0_2_release_1999_03_19), debian/copyright (1.2, tags:
+	cdlabelgen_1_0_2_release_1999_03_19): Fixed bug with empty items
+	array. Dotted i's, crossed t's
+
+1999-03-20 02:58  bwf
+
+	* cdlabelgen (1.28): Clean up, bumped version #, added THANKS
+	Section
+
+1999-03-20 02:49  bwf
+
+	* cdlabelgen (1.27): Added -o flag for printing to a file instead
+	of STDOUT. Documented.
+
+1999-03-20 02:08  bwf
+
+	* cdlabelgen (1.26): Changed date format to International date
+	format according to ISO 8601:1988
+
+1999-03-20 02:03  bwf
+
+	* postscript/template.ps (1.18, tags:
+	cdlabelgen_1_0_2_release_1999_03_19): Documented the new function
+	for autoscaling the items. Fixed Y coords for date on cover as well
+	as for items on traycard.
+
+1999-03-20 01:28  bwf
+
+	* postscript/template.ps (1.17): Oh yeah. Autoflowing and
+	columnation of items on tray_card now works beautifully.
+
+1999-03-19 17:07  bwf
+
+	* ChangeLog (1.5), cdlabelgen (1.25): doco cleano
+
+1999-03-19 07:51  bwf
+
+	* cdlabelgen (1.24): Now scrub all data for errant parens and
+	replace them with their corresponding ascii codes.
+
+1999-03-19 07:20  bwf
+
+	* cdlabelgen (1.23): Updated documentation
+
+1999-03-19 06:58  bwf
+
+	* postscript/mp3.eps (1.1, tags: debian_version_1_5_0-1,
+	cdlabelgen_1_5_0_soft_release_1999_06_21,
+	cdlabelgen_1_1_3_release_1999_03_25, debian_version_1_1_3-1,
+	debian_version_1_0_2-1, cdlabelgen_1_0_2_release_1999_03_19): It
+	was inevitable.
+
+	* cdlabelgen (1.21): Fixed shebang line to call /usr/bin/perl. Many
+	users don't have the /usr/local/bin/perl symlink.
+
+	* cdlabelgen (1.20): Added -S flag for scaling epsfile. Documented
+	it too!
+
+	* cdlabelgen (1.22): Got rid of old items2 cruft
+
+1999-03-19 05:02  bwf
+
+	* cdlabelgen (1.19), postscript/template.ps (1.16): Added date to
+	cover
+
+1999-03-19 04:39  bwf
+
+	* cdlabelgen (1.18), postscript/template.ps (1.15): Removed epsfile
+	from traycard and improved error handling (checks to make sure we
+	get a BoundingBox) for epsfiles
+
+1999-03-19 04:00  bwf
+
+	* postscript/template.ps (1.14): Dynamic truncation of super long
+	lists of items (above approx 192). Decided to stay with original
+	multicolumn algorithm for now.
+
+1999-03-18 06:00  bwf
+
+	* postscript/template.ps (1.13): Got a version of automatic
+	multiple column design on the tray_card
+
+1999-03-18 05:23  bwf
+
+	* cdlabelgen (1.17): Fixed hack to do multiple columns on tray_card
+
+	* postscript/template.ps (1.12): Added variable column support on
+	tray_card. Preparing to auto_scale. Man the guns!
+
+1999-03-17 06:57  bwf
+
+	* cdlabelgen (1.16): Documentation fixes
+
+	* postscript/template.ps (1.11): Completed scaling and conditionals
+	for endcaps. Not tested thoroughly yet.
+
+1999-03-17 05:51  bwf
+
+	* postscript/template.ps (1.10): Autoscaling implemented
+
+	* cdlabelgen (1.15): Fixed stupid Why Too Kay oversight.
+
+1999-03-12 06:09  bwf
+
+	* postscript/template.ps (1.9): Got autoscaling implemented on the
+	cover now
+
+1999-02-27 01:57  bwf
+
+	* postscript/template.ps (1.8): Have no idea what change this is
+
+1999-01-23 06:53  apharris
+
+	* Makefile (1.7, tags: debian_version_0_7_0-1): fix installation of
+	POSTSCRIPT files
+
+1999-01-23 06:21  apharris
+
+	* debian/rules (1.4, tags: cdlabelgen_1_0_2_release_1999_03_19,
+	debian_version_0_7_0-1): fix refs to /usr/local/ in cdlabelgen
+
+	* Makefile (1.6): install POSTSCRIPT under 'install' rule
+
+1999-01-23 06:05  apharris
+
+	* debian/copyright (1.1, tags: debian_version_0_7_0-1): initial,
+	mostly copy-n-pasted from cdlabelgen
+
+	* debian/control (1.3, tags: debian_version_1_0_2-1,
+	cdlabelgen_1_0_2_release_1999_03_19, debian_version_0_7_0-1): move
+	to graphics section
+
+	* debian/changelog (1.2, tags: cdlabelgen_1_0_2_release_1999_03_19,
+	debian_version_0_7_0-1): finally, ready for release
+
+	* debian/rules (1.3): install debian/copyright
+
+1998-11-25 10:37  apharris
+
+	* debian/rules (1.2): debian changelog installed properly
+
+	* debian/control (1.2): depends on perl
+
+1998-11-25 07:03  apharris
+
+	* debian/changelog (1.1), debian/control (1.1), debian/rules (1.1):
+	initial
+
+1998-11-25 06:21  apharris
+
+	* Makefile (1.5): fix one bug; paramaterize install program and use
+	'install'
+
+1998-11-20 15:07  bwf
+
+	* INSTALL (1.2, tags: debian_version_1_5_0-1,
+	cdlabelgen_1_5_0_soft_release_1999_06_21,
+	cdlabelgen_1_1_3_release_1999_03_25, debian_version_1_1_3-1,
+	debian_version_1_0_2-1, cdlabelgen_1_0_2_release_1999_03_19,
+	debian_version_0_7_0-1): tab
+
+1998-11-20 07:20  bwf
+
+	* ChangeLog (1.4, tags: debian_version_0_7_0-1), Makefile (1.4):
+	Minor tweeks
+
+1998-11-20 06:56  bwf
+
+	* INSTALL (1.1), Makefile (1.3), cdlabelgen (1.14, tags:
+	debian_version_0_7_0-1): Added INSTALL and fixed the template
+	finding mechanism. Also fixed broken argument checking.
+
+1998-11-12 20:06  bwf
+
+	* README (1.3, tags: debian_version_1_5_0-1,
+	cdlabelgen_1_5_0_soft_release_1999_06_21,
+	cdlabelgen_1_1_3_release_1999_03_25, debian_version_1_1_3-1,
+	debian_version_1_0_2-1, cdlabelgen_1_0_2_release_1999_03_19,
+	debian_version_0_7_0-1): Added cursory README
+
+1998-11-12 19:50  bwf
+
+	* Makefile (1.2), cdlabelgen (1.13): Tweaks for release
+
+1998-11-12 18:58  bwf
+
+	* Makefile (1.1), cdlabelgen (1.12): Added Makefile, preparing to
+	test the Makefile. Checking in before testing so that if I hose the
+	whole shebang I'm not left with eggroll. Natch
+
+1998-11-12 06:11  bwf
+
+	* ChangeLog (1.3), cdlabelgen (1.11): Got some bug reports from
+	aph. Cleaned up a little further.
+
+1998-11-12 05:17  bwf
+
+	* cdlabelgen (1.10): Got auto-detect of BoundingBox dimensions
+	working
+
+1998-11-12 04:41  bwf
+
+	* cdlabelgen (1.9), postscript/template.ps (1.7, tags:
+	debian_version_0_7_0-1): Cleaned up crufty postscript in the perl
+	code, and all prepared to automate Bounding Box dimensions from eps
+	files.
+
+1998-11-12 03:34  bwf
+
+	* cdlabelgen (1.8), postscript/recycle.epsi (1.1, tags:
+	debian_version_1_5_0-1, cdlabelgen_1_5_0_soft_release_1999_06_21,
+	cdlabelgen_1_1_3_release_1999_03_25, debian_version_1_1_3-1,
+	debian_version_1_0_2-1, cdlabelgen_1_0_2_release_1999_03_19,
+	debian_version_0_7_0-1), postscript/recycle.ps (1.2, tags:
+	debian_version_1_5_0-1, cdlabelgen_1_5_0_soft_release_1999_06_21,
+	cdlabelgen_1_1_3_release_1999_03_25, debian_version_1_1_3-1,
+	debian_version_1_0_2-1, cdlabelgen_1_0_2_release_1999_03_19,
+	debian_version_0_7_0-1), postscript/template.ps (1.6): Fixed bug so
+	it now works without the -e flag. Added recycle.epsi as sample eps
+	image
+
+1998-11-11 05:10  bwf
+
+	* ChangeLog (1.2), postscript/template.ps (1.5): Tweak!
+
+1998-11-11 04:43  bwf
+
+	* ChangeLog (1.1): Added ChangeLog
+
+1998-11-11 04:32  bwf
+
+	* COPYING (1.1, tags: debian_version_1_5_0-1,
+	cdlabelgen_1_5_0_soft_release_1999_06_21,
+	cdlabelgen_1_1_3_release_1999_03_25, debian_version_1_1_3-1,
+	debian_version_1_0_2-1, cdlabelgen_1_0_2_release_1999_03_19,
+	debian_version_0_7_0-1): Added a copy of the GPL
+
+	* README (1.2), cdlabelgen (1.7), postscript/template.ps (1.4):
+	Removed README and added all documentation to cdlabelmaker in pod
+	format. Expanded greatly on the docs
+
+1998-11-11 02:36  bwf
+
+	* cdlabelgen (1.6): Added TOKEN_ to the beginning of all tokens
+	that get replaced in the template file.
+
+1998-11-01 19:06  ggallag
+
+	* cdlabelgen (1.5): Added '.' infront of postscript/' to fix
+	problem if not CWD when running it
+
+1998-10-27 18:19  ggallag
+
+	* cdlabelgen (1.4), postscript/template.ps (1.3): Added ability for
+	2-columns in details, made the -s flag test a smaller font so it
+	fits on most of the time
+
+1998-10-26 19:23  bwf
+
+	* cdlabelgen (1.3), postscript/template.ps (1.2): Fixed first
+	officially reported bug!
+
+1998-10-26 14:33  bwf
+
+	* cdlabelgen (1.2), foo.ps (1.2): Cleaned up code to remove
+	warnings that Perl emits. Zapped 'foo.ps' which mistakenly got
+	imported
+
+1998-10-26 05:36  bwf
+
+	* README (1.1), cdlabelgen (1.1), foo.ps (1.1, tags:
+	debian_version_0_7_0-1), postscript/dolby.ps (1.1, tags:
+	debian_version_1_5_0-1, cdlabelgen_1_5_0_soft_release_1999_06_21,
+	cdlabelgen_1_1_3_release_1999_03_25, debian_version_1_1_3-1,
+	debian_version_1_0_2-1, cdlabelgen_1_0_2_release_1999_03_19,
+	debian_version_0_7_0-1), postscript/onshore.eps (1.1, tags:
+	debian_version_1_5_0-1, cdlabelgen_1_5_0_soft_release_1999_06_21,
+	cdlabelgen_1_1_3_release_1999_03_25, debian_version_1_1_3-1,
+	debian_version_1_0_2-1, cdlabelgen_1_0_2_release_1999_03_19,
+	debian_version_0_7_0-1), postscript/recycle.ps (1.1),
+	postscript/template.ps (1.1), postscript/testfile.ps (1.1, tags:
+	cdlabelgen_1_0_2_release_1999_03_19, debian_version_0_7_0-1):
+	Initial import of cdlabelmaker
+

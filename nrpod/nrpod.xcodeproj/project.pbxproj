@@ -1,0 +1,72 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXFileReference section */
+		D0441FDD1440204B00F1F034 /* nrpod.pl */ = {isa = PBXFileReference; lastKnownFileType = text.script.perl; name = nrpod.pl; path = ../nrpod.pl; sourceTree = "<group>"; usesTabs = 1; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		D0441FD41440201D00F1F034 = {
+			isa = PBXGroup;
+			children = (
+				D0441FDD1440204B00F1F034 /* nrpod.pl */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXProject section */
+		D0441FD61440201D00F1F034 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				ORGANIZATIONNAME = "Peter Westley and Associates Pty Ltd";
+			};
+			buildConfigurationList = D0441FD91440201D00F1F034 /* Build configuration list for PBXProject "nrpod" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = D0441FD41440201D00F1F034;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+			);
+		};
+/* End PBXProject section */
+
+/* Begin XCBuildConfiguration section */
+		D0441FDB1440201E00F1F034 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		D0441FDC1440201E00F1F034 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		D0441FD91440201D00F1F034 /* Build configuration list for PBXProject "nrpod" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D0441FDB1440201E00F1F034 /* Debug */,
+				D0441FDC1440201E00F1F034 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = D0441FD61440201D00F1F034 /* Project object */;
+}
