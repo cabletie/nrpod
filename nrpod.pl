@@ -108,6 +108,7 @@ my $gui = 1;
 
 my $term = Term::ReadLine->new($0);
 my $OUT = $term->OUT || \*STDOUT;
+my $LOG;
 
 # Check for existence of and create directory if needed
 sub checkDirectory {
@@ -131,7 +132,7 @@ sub promptUser {
 	# Input is returned as function result
 	my($promptString,$defaultValue) = @_;
 #	$defaultValue = $defaultValue?$defaultValue:"";
-	my $cdrv,$button_rv, $rv;
+	my ($cdrv,$button_rv, $rv);
 	if($gui) {
 		$cdrv = `$pathToCD inputbox --title "nrpod" --informative-text "$promptString" --text "$defaultValue" --button1 "OK"`;
 		($button_rv, $rv) = split /\n/, $cdrv, 2;
@@ -156,6 +157,54 @@ sub promptUserYN {
 		$rv = $term->readline("$promptString ",$defaultValue);
 	}
 	return $rv;
+}
+
+sub promptUserOKCan {
+	# Button clicked is returned as function result
+	my($promptString,$Button1,$Button2) = @_;
+	$Button1 = "OK" unless defined $Button1;
+	$Button2 = "Cancel" unless defined $Button2;
+	if($gui) {
+	return `$pathToCD msgbox --title "nrpod" --label "$promptString" --button1 "$Button1" --button2 "$Button2"`;
+	} else { # not GUI
+		return 1 if($term->readline("$promptString ",$Button1) =~ /^$Button1/);
+		return 2;
+	}
+}
+
+sub promptUserForTracks {
+	# Window title, 
+	# label (usualy time total), 
+	# array of tracks selected by default (e.g. 1,3,5,6,7), 
+	# array of track names/numbers and durations
+	my ($title,$label,$ref_selected,$ref_tracks) = @_;
+	my ($rv, $cdrv, @rv, $boxes, $button, @boxes);
+		my @checkedBoxes; # declare array that big to hold a number for each track
+		# my @checkedBoxes = (0) x $#{$ref_tracks}; # declare array that big to hold a number for each track
+		# Convert selection array to bitmap array
+		# Loop through list and set each specified element to 1
+		foreach my $checked (@{$ref_selected})
+		{
+			push(@checkedBoxes,$checked-1);
+		}
+		print "$pathToCD checkbox --title \"$title\" --label \"$label\" --width 600 --button1 OK --button2 Recalculate --button3 Cancel --debug --items @{$ref_tracks} --checked @checkedBoxes\n" if ($debug>1);
+		open CD, "$pathToCD checkbox --title \"$title\" --label \"$label\" --width 600 --button1 OK --button2 Recalculate --button3 Cancel --debug --items @{$ref_tracks} --checked @checkedBoxes|" or die "$pathToCD @args failed: $!";
+		$button = <CD>;
+		$boxes = <CD>;
+		close CD;
+		# Convert bitmap array (0 0 1 0 1 1 0) to selection array (2,4,5)
+		(@boxes) = split /\s/,$boxes;
+		my $boxnum = 1;
+		# Reset selected back to nothing
+		@{$ref_selected} = ();
+		# Loop and push each selected track back into result
+		foreach my $box (@boxes) 
+		{
+			push @{$ref_selected}, $boxnum if ($box == 1);
+			$boxnum++;
+		}
+		print "Inside:",join(" ",@{$ref_selected}),"\n" if $debug;
+	return $button;	
 }
 
 sub message {
@@ -536,7 +585,7 @@ sub checkTracks {
 			message $msgtext."NOT fixed"}
 	}
 #	print "Errors " . $fixLabels?"fixed\n":"NOT fixed\n" if ($errors_found);
-	print "Finished Checking Tracks with $errors_found errors\n" if $debug>1;
+	message "Finished Checking Tracks with $errors_found errors\n" if $debug>1;
 	print "OK\n" unless ($errors_found);
     $errors_found;
 } #checkTracks
@@ -546,7 +595,7 @@ sub makeMp3s {
 	# Create MP3 files from the wavs.
 	##############################################
 	# Open today's aup file
-    print "Making MP3s\n";
+    print "Making MP3s\n" if($verbose);
 	print "looking in $wavDirectory for wav files\n" if $debug>2;
 	my $numlabels = $AUP->{project}{labeltrack}{numlabels};
 	my @llist = @{$AUP->{project}{labeltrack}{label}};
@@ -558,12 +607,12 @@ sub makeMp3s {
 		# Check the wav file exists
 		my $tiString = sprintf("%02d", $ti);
 		my $wavfile = "$wavDirectory/".$tiString."-$title.wav";
-		print "$title\n";
+		print "$title\n" if($verbose);
 		if(-r $wavfile){
                         convertWav2Mp3($title, $ti, $numlabels, $wavfile, "$mp3Directory/".$tiString."-$title.mp3");
 		}
 	}
-        print "Finished Making $numlabels MP3 files from wav files\n";
+        print "Finished Making $numlabels MP3 files from wav files\n" if($verbose);
 }
 
 sub checkBlankMedia {
@@ -692,6 +741,7 @@ sub sec2Hms {
 	sprintf "%02dh%02dm%02ds" ,$whole_hours,$whole_minutes,$remaining_seconds;
 }
 
+
 sub selectTracks {
 	# Prompt user to list tracks selected for inclusion either in sermon or on CD
 	# Usage: selectTracks <prompt message>
@@ -703,6 +753,8 @@ sub selectTracks {
 	my $total_length = 0;
 	my $selected_total = 0;
 	my $selectionString;
+	my @selectedArray;
+	my $initialSelectionString = "1";
 	my %options = (
 		'.01compatible'   => 0,
 		'oldcooledithack' => 0,
@@ -716,39 +768,100 @@ sub selectTracks {
 	# Grab a file glob from the wav directory
 	chomp (@filelist = glob("$wavDirectory/[0-9][0-9]-*.wav"));
 
-	# Iterate over them, printing the basename and saving and summing the recording time	
-	do {
-		$selected_total = 0;
-		foreach my $file (@filelist) {
-			print $OUT basename($file,".wav");
-			my $read = $wav -> read($file); #need to capture and print error details here
-			$track_lengths{$file} = $read -> length_seconds();
-			$total_length += $track_lengths{$file};
-			printf $OUT ("\t\t%5.0fs\n", $track_lengths{$file});
-		}
-		printf $OUT ("\nTotal time: %s\n", sec2Hms($total_length));
-		#printf "\nTotal time: %02dh%02dm%05.2fs (%.4f seconds)\n" ,$whole_hours,$whole_minutes,$remaining_seconds,$sec;
-		print $OUT "Enter track numbers to use for $message, \n";
-		print $OUT "separated by commas or use '-' for a range. e.g. 1-5,12,15.\n";
-		my $defaultFileList = "1";
-		if($#filelist > 0) {
-			$defaultFileList .= "-".eval($#filelist+1);
-		}
-		$selectionString = promptUser ("Track numbers: ", $selectionString?$selectionString:$defaultFileList);
-		my @selected = expandSelection($selectionString,1,$#filelist+1);
-		print $OUT "\nYou have selected the following:\n";
-		my $selection;
-		foreach my $selection (@selected) {
-			print $OUT $selection;
-			print $OUT ": " . basename ($filelist[$selection-1],".wav");
-			printf $OUT ("\t\t%5.4fs\n", $track_lengths{$filelist[$selection-1]});
-			push @result, {'filename' => $filelist[$selection-1], 'length' => $track_lengths{$filelist[$selection-1]}};
-			$selected_total += $track_lengths{$filelist[$selection-1]};
-		}
-		print $OUT "\nTotal time: ", sec2Hms $selected_total, "\n";
-		print $OUT "\n******** WARNING WILL ROBINSON DANGER DANGER ******\nTotal time exceeds 80min: ", sec2Hms $selected_total, "\n" 
-			if ($selected_total > 80*60);		
-	} until promptUser("\nAre these selections correct?","Yes") =~ /^Y/i;
+	# Define a default list of selected tracks (all of them)
+	$initialSelectionString = "1";
+	if($#filelist > 0) {
+		$initialSelectionString .= "-".eval($#filelist+1);
+	}
+	@selectedArray = expandSelection($initialSelectionString,1,$#filelist+1);
+
+	if($gui)
+	{
+		my $button;
+		do {
+			my %checkBoxStrings = ();
+			my @checkBoxStrings = ();
+			# Reset totals
+			$total_length = 0; 
+			$selected_total = 0;
+			# Construct checkbox label strings for each wav filename and track time
+			foreach my $file (@filelist) {
+				# Start with open quote (we want to include the quote as part of the parameter to keep passing as parameters simple)
+				$checkBoxStrings{$file} = "\"";
+				# Add the filename
+				$checkBoxStrings{$file} .= basename($file,".wav");
+				# Read wav file and get duration
+				my $read = $wav -> read($file); #need to capture and print error details here
+				$track_lengths{$file} = $read -> length_seconds();
+				# Add this track's length to total
+				$total_length += $track_lengths{$file};
+				$checkBoxStrings{$file} .= sprintf("\t\t%s", sec2Hms($track_lengths{$file}));
+				$checkBoxStrings{$file} .= "\"";
+				push(@checkBoxStrings,$checkBoxStrings{$file});
+			}
+
+			$selected_total = 0;
+			foreach $selection (@selectedArray) {
+				$selected_total += $track_lengths{$filelist[$selection-1]};
+			}
+			print "Before:",join(" ",@selectedArray),"\n" if $debug;
+
+			$button = promptUserForTracks (
+				"Select tracks for $message",
+				sprintf ("Total selected: %s, Total all tracks: %s", sec2Hms($selected_total), sec2Hms($total_length)),
+				\@selectedArray,
+				\@checkBoxStrings);
+			print "After:",join(" ",@selectedArray),"\n" if $debug;
+			return 0 if ($button == 3); # Cancel
+			my $selection;
+			$selected_total = 0;
+			foreach $selection (@selectedArray) {
+				push @result, {'filename' => $filelist[$selection-1], 'length' => $track_lengths{$filelist[$selection-1]}};
+				$selected_total += $track_lengths{$filelist[$selection-1]};
+			}
+			print $OUT "\nTotal time: ", sec2Hms $selected_total, "\n";
+			$button = promptUserOKCan(
+				sprintf("******** WARNING WILL ROBINSON DANGER DANGER ******\nTotal time exceeds 80min: %s",
+					 sec2Hms($selected_total)),
+				"Cool, continue",
+				"I'll try that again") 
+				if ($selected_total > 80*60);
+		} until $button == 1;
+	} else {
+		# Iterate over them, printing the basename and saving and summing the recording time	
+		do {
+			$selected_total = 0;
+			foreach my $file (@filelist) {
+				print $OUT basename($file,".wav");
+				my $read = $wav -> read($file); #need to capture and print error details here
+				$track_lengths{$file} = $read -> length_seconds();
+				$total_length += $track_lengths{$file};
+				printf $OUT ("\t\t%5.0fs\n", $track_lengths{$file});
+			}
+			printf $OUT ("\nTotal time: %s\n", sec2Hms($total_length));
+			#printf "\nTotal time: %02dh%02dm%05.2fs (%.4f seconds)\n" ,$whole_hours,$whole_minutes,$remaining_seconds,$sec;
+			print $OUT "Enter track numbers to use for $message, \n";
+			print $OUT "separated by commas or use '-' for a range. e.g. 1-5,12,15.\n";
+			my $defaultFileList = "1";
+			if($#filelist > 0) {
+				$defaultFileList .= "-".eval($#filelist+1);
+			}
+			$selectionString = promptUser ("Track numbers: ", $selectionString?$selectionString:$defaultFileList);
+			my @selected = expandSelection($selectionString,1,$#filelist+1);
+			print $OUT "\nYou have selected the following:\n";
+			my $selection;
+			foreach my $selection (@selected) {
+				print $OUT $selection;
+				print $OUT ": " . basename ($filelist[$selection-1],".wav");
+				printf $OUT ("\t\t%5.4fs\n", $track_lengths{$filelist[$selection-1]});
+				push @result, {'filename' => $filelist[$selection-1], 'length' => $track_lengths{$filelist[$selection-1]}};
+				$selected_total += $track_lengths{$filelist[$selection-1]};
+			}
+			print $OUT "\nTotal time: ", sec2Hms $selected_total, "\n";
+			print $OUT "\n******** WARNING WILL ROBINSON DANGER DANGER ******\nTotal time exceeds 80min: ", sec2Hms $selected_total, "\n" 
+				if ($selected_total > 80*60);		
+		} until promptUser("\nAre these selections correct?","Yes") =~ /^Y/i;
+	}
 	return @result;
 }
 
@@ -1005,7 +1118,7 @@ $mp3?makeMp3s:print "Not making MP3s\n";
 if($burn) {
 	my @blanks = checkBlankMedia;
 	while($#blanks < 0 &&
-	   promptUser ("No blank, writable CDs found\n[T]ry again or [S]kip burning?","T") =~ /^T/i) {
+	   promptUserOKCan ("No blank, writable CDs found\nTry again or Skip burning?","Try Again","Skip") == 1) {
 		@blanks = checkBlankMedia;
 	}
 	if ($debug) {
