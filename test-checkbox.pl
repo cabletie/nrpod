@@ -12,7 +12,7 @@ $cbs{one} = "track one";
 $cbs{two} = "track two";
 $cbs{three} = "track three";
 
-print @cbs;
+print %cbs;
 
 #print promptUserForTracks("Select Tracks to burn",'Totaltime is: 01h:45m:23s',qw/"01 Track this" "02 Track this" "03 Track this" "04 Track this"/) . "\n";
 
