@@ -188,7 +188,14 @@ sub promptUserRadio {
 	my($promptString,$Button1,$Button2,@items) = @_;
 	$Button1 = "OK" unless defined $Button1;
 	$Button2 = "Cancel" unless defined $Button2;
+    print $OUT ("Select from:\n") if $verbose;
+    if($verbose) {
+        for my $i (0 .. $#items) {
+            print "$i: $items[$i]\n";
+        }
+    }
 	my($button,$option) = split /\n/,`$pathToCD radio --title "nrpod" --label "$promptString" --button1 "$Button1" --button2 "$Button2" --items @items --selected 0`;
+    print ("Selected: $option\n") if $verbose;
 	return $button,$option;
 }
 
@@ -223,7 +230,7 @@ sub promptUserForTracks {
 			push @{$ref_selected}, $boxnum if ($box == 1);
 			$boxnum++;
 		}
-		print $OUT "Inside:",join(" ",@{$ref_selected}),"\n" if $debug;
+		print $OUT "Inside:",join(" ",@{$ref_selected}),"\n" if $debug>2;
 	return $button;	
 }
 
@@ -236,27 +243,37 @@ sub promptUserForOptions {
 		{name => "Create CD insert PDF",ref => \$cdInserts},
 		{name => "Upload podcast to FTP server",ref => \$upload},
 		{name => "Print CD Inserts",ref => \$printCdInserts},
+        {name => "Debugging",ref => \$debug},
+        {name => "Verbose",ref => \$verbose},
 	);
-	# print ${$optionList[1]{ref}};
-	# exit;
+#    print "\$\#optionList: $#optionList\n";
+#    foreach $opt (@optionList) {
+#        print("$opt->{name}:${$opt->{ref}}\n");
+#    }
+#    print "\n";
 	my $index;
-	for ($index = 0, $index < $#optionList, $index++) {
-		push (my @checkedOptions,$index) if(${$optionList[$index]{ref}});
+    my @checkedOptions;
+	for $index (0 .. $#optionList) {
+        print $OUT ("index: $index, name: $optionList[$index]{name}, ref: ${$optionList[$index]{ref}}\n") if ($debug>2);
+		push (@checkedOptions,$index) if(${$optionList[$index]->{ref}});
 	}
-	message(join("|",@checkedOptions)) if($debug);
+	print $OUT ("Checked Options: ",join("|",@checkedOptions),"\n");
 	my @optionListText;
-	for ($index = 0, $index < $#optionList, $index++) {
-		push (@optionListText,$optionList[$index]{name});
+	for $index (0 .. $#optionList) {
+#        print $OUT ("index: $index, name: $optionList[$index]{name}, ref: ${$optionList[$index]{ref}}\n");
+		push (@optionListText,"'".$optionList[$index]->{name}."'");
 	}
+#    print join("\n",@optionListText);
+    print "\n";
 	@CDARGS = (
 		"checkbox",
 		"--title $0",
 		"--label Choose options for this session",
 		"--width 600",
 		"--button1 OK",
-		"--button2 Quit",
+		"--button2 Cancel",
 		"--debug",
-		"--items @optionListText",
+		"--items", qq/@optionListText/,
 		"--checked @checkedOptions",
 		);
 	open (CD, "$pathToCD @CDARGS |") or die "$pathToCD failed: $!";
@@ -265,7 +282,7 @@ sub promptUserForOptions {
 	$options = <CD>;
 	close CD;
 	# Convert bitmap array (0 0 1 0 1 1 0) to selection array (2,4,5)
-	(@options) = split /\s/,$options;
+	(@options) = split /\s/,$options if defined $options;
 	# my $boxnum = 1;
 	# Reset selected back to nothing
 	return $button;		
@@ -879,14 +896,14 @@ sub selectTracks {
 			foreach $selection (@selectedArray) {
 				$selected_total += $track_lengths{$filelist[$selection-1]};
 			}
-			print "Before:",join(" ",@selectedArray),"\n" if $debug;
+			print "Before:",join(" ",@selectedArray),"\n" if $debug>2;
 
 			$button = promptUserForTracks (
 				"Select tracks for $message",
 				sprintf ("Total selected: %s, Total all tracks: %s", sec2Hms($selected_total), sec2Hms($total_length)),
 				\@selectedArray,
 				\@checkBoxStrings);
-			print "After:",join(" ",@selectedArray),"\n" if $debug;
+			print "After:",join(" ",@selectedArray),"\n" if $debug>2;
 			return 0 if ($button == 3); # Cancel
 			my $selection;
 			$selected_total = 0;
@@ -1092,9 +1109,9 @@ pod2usage(-exitstatus => 0, -verbose => 2) if $man;
 # Load any config from ini file
 loadConfig;
 
-# Now get user selected options via the gui
-# promptUserForOptions() ;
-
+## Now get user selected options via the gui
+#exit unless promptUserForOptions == 1;
+#
 # Use projectDate if provided on command line
 $dateString = $projectDate if(defined $projectDate);
 
@@ -1146,8 +1163,6 @@ if ($#ARGV >= 0) {
 $projectFilePath = "$projectDirectory/$projectFilename";
 $projectDataDirectory = "$projectDirectory/$projectName$audacityProjectDataDirectorySuffix";
 
-
-
 # Setup directories constructed from projectName
 setupPaths $projectDirectory;
 
@@ -1198,6 +1213,9 @@ if(($audacity eq 1) ||
 		$printCdInserts?"printcdinserts ":"",
 		$podcastid3?"podcastid3 ":"","\n";
 };
+
+# Now get user selected options via the gui
+exit unless promptUserForOptions == 1;
 
 # Run Audacity to capture recording
 runAudacity if $audacity;
