@@ -1,0 +1,36 @@
+This perl script tool (really just nrpod.pl) is the automation of the podcast 
+capture ond process precedure for the North Ringwood Uniting Church.
+
+It's really rough as guts and uses cocoaDialog to provide a rudimentray 
+GUI interface for some aspects.
+
+Dont upgrade to OS-X Mountain Lion (10.8) because cocoaDialog will stop working.
+
+There are a number of ancilliary tools used such as:
+	- cdlabelgen
+	- sox
+	- ffmpeg
+	- audacity
+	- cocoadialog
+	- lame
+
+Used to complete the process. Also a number of Mac tools are used such as:
+	- drutil
+
+And a number of perl modules such as:
+	XML::Smart;
+	File::Basename;
+	File::Path qw(make_path);
+	File::Glob;
+	Switch;
+	Getopt::Long;
+	Pod::Usage;
+	Data::Dumper;
+	Audio::Wav;
+	Config::Simple;
+	Time::localtime;
+	IO::File;
+	Term::ReadLine;
+
+Peter Westley
+pjwestley _at_ gmail.com
