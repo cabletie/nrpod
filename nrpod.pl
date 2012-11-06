@@ -102,7 +102,7 @@ my $cdInserts = 2;
 my $printCdInserts = 2;
 my $projectDate;
 my $upload = 2;
-my $podcastid3 = 2;
+my $podcastid3 = 1;
 my $updatetags;
 my $verbose = 0;
 my $gui = 1;
@@ -206,19 +206,20 @@ sub promptUserForTracks {
 	# array of track names/numbers and durations
 	my ($title,$label,$ref_selected,$ref_tracks) = @_;
 	my ($rv, $cdrv, @rv, $boxes, $button, @boxes);
-		my @checkedBoxes; # declare array that big to hold a number for each track
-		# my @checkedBoxes = (0) x $#{$ref_tracks}; # declare array that big to hold a number for each track
-		# Convert selection array to bitmap array
-		# Loop through list and set each specified element to 1
-		foreach my $checked (@{$ref_selected})
-		{
-			push(@checkedBoxes,$checked-1);
-		}
-		print "$pathToCD checkbox --title \"$title\" --label \"$label\" --width 600 --button1 OK --button2 Recalculate --button3 Cancel --debug --items @{$ref_tracks} --checked @checkedBoxes\n" if ($debug>1);
-		open CD, "$pathToCD checkbox --title \"$title\" --label \"$label\" --width 600 --button1 OK --button2 Recalculate --button3 Cancel --debug --items @{$ref_tracks} --checked @checkedBoxes|" or die "$pathToCD failed: $!";
-		$button = <CD>;
-		$boxes = <CD>;
-		close CD;
+    my @checkedBoxes; # declare array that big to hold a number for each track
+    # my @checkedBoxes = (0) x $#{$ref_tracks}; # declare array that big to hold a number for each track
+    # Convert selection array to bitmap array
+    # Loop through list and set each specified element to 1
+    foreach my $checked (@{$ref_selected})
+    {
+        push(@checkedBoxes,$checked-1);
+    }
+    print "$pathToCD checkbox --title \"$title\" --label \"$label\" --width 600 --button1 OK --button2 Recalculate --button3 Cancel --debug --items @{$ref_tracks} --checked @checkedBoxes\n" if ($debug>1);
+    open CD, "$pathToCD checkbox --title \"$title\" --label \"$label\" --width 600 --button1 OK --button2 Recalculate --button3 Cancel --debug --items @{$ref_tracks} --checked @checkedBoxes|" or die "$pathToCD failed: $!";
+    chomp($button = <CD>);
+    $boxes = <CD>;
+    close CD;
+    if(defined $boxes) {
 		# Convert bitmap array (0 0 1 0 1 1 0) to selection array (2,4,5)
 		(@boxes) = split /\s/,$boxes;
 		my $boxnum = 1;
@@ -231,7 +232,8 @@ sub promptUserForTracks {
 			$boxnum++;
 		}
 		print $OUT "Inside:",join(" ",@{$ref_selected}),"\n" if $debug>2;
-	return $button;	
+    }
+	return $button;
 }
 
 sub promptUserForOptions {
@@ -253,11 +255,15 @@ sub promptUserForOptions {
 #    print "\n";
 	my $index;
     my @checkedOptions;
+    my @mixedOptions;
 	for $index (0 .. $#optionList) {
         print $OUT ("index: $index, name: $optionList[$index]{name}, ref: ${$optionList[$index]{ref}}\n") if ($debug>2);
-		push (@checkedOptions,$index) if(${$optionList[$index]->{ref}});
+        # Push the checked option on the list if it is == 1 (i.e supplied on the command line).
+        # If it is == 2, means selected by default and shouldn't be checked here.
+		push (@checkedOptions,$index) if(${$optionList[$index]->{ref}} == 1);
+		push (@mixedOptions,$index) if(${$optionList[$index]->{ref}} >= 2);
 	}
-	print $OUT ("Checked Options: ",join("|",@checkedOptions),"\n");
+	print $OUT ("Checked Options: ",join("|",@checkedOptions),"\n") if ($debug>2);
 	my @optionListText;
 	for $index (0 .. $#optionList) {
 #        print $OUT ("index: $index, name: $optionList[$index]{name}, ref: ${$optionList[$index]{ref}}\n");
@@ -269,23 +275,33 @@ sub promptUserForOptions {
 		"checkbox",
 		"--title $0",
 		"--label Choose options for this session",
-		"--width 600",
+#		"--width 600",
 		"--button1 OK",
 		"--button2 Cancel",
 		"--debug",
-		"--items", qq/@optionListText/,
+		"--items @optionListText",
 		"--checked @checkedOptions",
+        "--mixed @mixedOptions",
 		);
 	open (CD, "$pathToCD @CDARGS |") or die "$pathToCD failed: $!";
 	# open (CD, "$pathToCD checkbox --title $0 --label Choose options for this session --width 600 --button1 OK --button2 Quit --debug --items", @optionListText, "--checked @checkedOptions|") or die "$pathToCD failed: $!";
 	$button = <CD>;
 	$options = <CD>;
 	close CD;
-	# Convert bitmap array (0 0 1 0 1 1 0) to selection array (2,4,5)
-	(@options) = split /\s/,$options if defined $options;
+    if (defined $options) {
+        (@options) = split /\s/,$options;
+        for $opt (0.. $#options) {
+            print "Item[$opt] from dialog: $options[$opt]\n" if ($debug>2);
+            print $OUT "Before: $optionList[$opt]->{name} is ${$optionList[$opt]->{ref}}\n" if ($debug>2);
+            ${$optionList[$opt]->{ref}} = 1 if($options[$opt] == 1);
+            ${$optionList[$opt]->{ref}} = 0 if($options[$opt] == 0);
+            # Don't change option value if set to mixed (-1)
+            print $OUT "After: $optionList[$opt]->{name} is ${$optionList[$opt]->{ref}}\n" if ($debug>2);
+        }
+    }
 	# my $boxnum = 1;
 	# Reset selected back to nothing
-	return $button;		
+	return $button;
 }
 
 sub message {
@@ -534,6 +550,13 @@ sub configureProject {
 	# Loads the config. file into a hash: Eventually, all config will be in here
 	#	Config::Simple->import_from('nrpod.cfg', \%Config);
 
+	# Grab additional details for podcast
+    if($podcast) {
+        $sermonTitle = promptUser("Sermon title?",$sermonTitle);
+        $preacher = promptUser("Preacher name?", $preacher) unless defined $preacher;
+        $sermonSeries = promptUser("Series?", $sermonSeries);
+        $sermonDescription = promptUser("Sermon decription?", $sermonDescription);
+    }
 } #configureProject
 
 sub runAudacity {
@@ -836,9 +859,11 @@ sub sec2Hms {
 
 sub selectTracks {
 	# Prompt user to list tracks selected for inclusion either in sermon or on CD
-	# Usage: selectTracks <prompt message>
-	# Returns array of hashes %result{'filename' => <full path to track wav file>,'length' => <track length in seconds>}
+	# Usage:
+    # ($button,@selected) = selectTracks (<prompt message>,regex for default track selection)
+	# Returns button and array of hashes %result{'filename' => <full path to track wav file>,'length' => <track length in seconds>}
 	my $message = shift;
+    my $selectRE = shift;
 	my %track_lengths;
 	my @result;
 	my @filelist;
@@ -860,16 +885,31 @@ sub selectTracks {
 	# Grab a file glob from the wav directory
 	chomp (@filelist = glob("$wavDirectory/[0-9][0-9]-*.wav"));
 
+    # Select tracks based on regex provided
+    $index = 1;
+    print "Starting to look for matching filenames\n";
+    foreach my $file (@filelist) {
+        if($file =~ m/$selectRE/i){
+            print "Matched $file\n";
+    #        print "Comparing $file with $regex\n" if($debug>1);
+            push (@selectedArray,$index);
+        }
+        $index++;
+    }
+    print "Selected Array: @selectedArray\n";
 	# Define a default list of selected tracks (all of them)
-	$initialSelectionString = "1";
-	if($#filelist > 0) {
-		$initialSelectionString .= "-".eval($#filelist+1);
-	}
-	@selectedArray = expandSelection($initialSelectionString,1,$#filelist+1);
+#	$initialSelectionString = "1";
+#	if($#filelist > 0) {
+#		$initialSelectionString .= "-".eval($#filelist+1);
+#	}
+#	@selectedArray = expandSelection($initialSelectionString,1,$#filelist+1);
 
+    # Choose a path based on if gui is avaiable or not
+    # For GUI, present list of checkboxes and return actual button pressed plus selected array
+    # for terminal, return button == 1 always plus selected array.
+    my $button;
 	if($gui)
 	{
-		my $button;
 		do {
 			my %checkBoxStrings = ();
 			my @checkBoxStrings = ();
@@ -903,8 +943,9 @@ sub selectTracks {
 				sprintf ("Total selected: %s, Total all tracks: %s", sec2Hms($selected_total), sec2Hms($total_length)),
 				\@selectedArray,
 				\@checkBoxStrings);
+            print "Got button = $button back from promptUserForTracks\n" if ($debug > 1);
 			print "After:",join(" ",@selectedArray),"\n" if $debug>2;
-			return 0 if ($button == 3); # Cancel
+			return $button,() if ($button == 3); # Cancel
 			my $selection;
 			$selected_total = 0;
 			foreach $selection (@selectedArray) {
@@ -920,6 +961,8 @@ sub selectTracks {
 				if ($selected_total > 80*60);
 		} until $button == 1;
 	} else {
+        # Always return button == 1
+        $button = 1;
 		# Iterate over them, printing the basename and saving and summing the recording time	
 		do {
 			$selected_total = 0;
@@ -954,7 +997,7 @@ sub selectTracks {
 				if ($selected_total > 80*60);		
 		} until promptUser("\nAre these selections correct?","Yes") =~ /^Y/i;
 	}
-	return @result;
+	return $button,@result;
 }
 
 # Create PostScript files with CD labels, one each for Library and Master
@@ -964,7 +1007,7 @@ sub createCdInserts {
 	my @items;
 	my $totalLength;
 	my @args;
-	print "Creating CD labels\n";
+	print "Creating CD inserts\n";
 	foreach my $item (@tracks) {
 		my $timeString = sec2Hms $item -> {'length'};
 		$totalLength += $item -> {'length'};
@@ -1010,7 +1053,7 @@ sub printCdInserts {
 }
 
 sub createPodcast {
-	print "Creating podcast\n" if $debug;
+	print "Creating podcast\n" if $verbose;
 	my @tracks = @_;
 	my @args;
 	push @args, "$pathToSox";
@@ -1021,14 +1064,12 @@ sub createPodcast {
 	}
 	push @args, $podcastFilePath;
 	print $OUT "Running ", join (":",@args), "\n" if $debug;
+    # Save a copy of our command
 	dumpCommand("$projectDirectory/createpodcast.bash",@args);
+    # Run the sox command
 	system(@args) == 0 or die "system @args failed: $!";
 	# Now apply ID3 tags to resulting file
-	$sermonTitle = promptUser("Sermon title?",$sermonTitle);
-	$preacher = promptUser("Preacher name?", $preacher);
-	$sermonSeries = promptUser("Series?", $sermonSeries);
 	$sermonGenre = "speech";
-	$sermonDescription = promptUser("Sermon decription?", $sermonDescription);
 	if($podcastid3) {
 		print $OUT "Applying ID3 Tags to MP3 file\n" if $debug;
 	#	`mp3info2 -t title -a artist -l album -y year -g genre -c comment -n tracknumber`;
@@ -1109,9 +1150,6 @@ pod2usage(-exitstatus => 0, -verbose => 2) if $man;
 # Load any config from ini file
 loadConfig;
 
-## Now get user selected options via the gui
-#exit unless promptUserForOptions == 1;
-#
 # Use projectDate if provided on command line
 $dateString = $projectDate if(defined $projectDate);
 
@@ -1181,6 +1219,9 @@ configureProject;
 print $OUT "audacity: $audacity\n" if $debug > 1;
 print $OUT "podcast: $podcast\n" if $debug > 1;
 
+# Now confirm user selected options via the gui
+exit unless promptUserForOptions == 1;
+
 # If any steps are explicity requested, set all others still enabled by default (i.e. value == 2) to disabled
 if(($audacity eq 1) ||
    ($mp3 == 1) ||
@@ -1214,8 +1255,9 @@ if(($audacity eq 1) ||
 		$podcastid3?"podcastid3 ":"","\n";
 };
 
-# Now get user selected options via the gui
-exit unless promptUserForOptions == 1;
+#######################
+# Begin the real work #
+#######################
 
 # Run Audacity to capture recording
 runAudacity if $audacity;
@@ -1228,43 +1270,55 @@ while(checkTracks($projectFilePath)) {
    if($r == 2) {message "Quitting\n"; exit;}
 }
 
-# Create mp3 files from wav files
+# Create individual mp3 files from wav files
 makeMp3s if($mp3);
 
 # Burn CDs
-@selectedTracks = selectTracks("Select tracks for burning to CD") if ($cdInserts || $burn);
-if($burn) {
-	my @blanks = checkBlankMedia;
-	while($#blanks < 0 &&
-	   promptUserOKCan ("No blank, writable CDs found\nTry again or Skip burning?","Try Again","Skip") == 1) {
-		@blanks = checkBlankMedia;
-	}
-	if ($debug) {
-		my $plural = $#blanks > 0?'s ':' ';
-		print "Available blank, writable CD".$plural."in drive".$plural;
-		print join(' and ',@blanks)."\n";
-	}
-	foreach my $drive (@blanks) {
-		BurnCD($drive, @selectedTracks);
-	}
-} else { 
-	print "Not burning CDs\n" if($verbose);
+# First get selected tracks to burn
+if ($cdInserts || $burn){
+    my $button;
+    ($button,@selectedTracks) = selectTracks(($burn?"burning to CD":"") . (($cdInserts and $burn)?" and ":"") . ($cdInserts?"jewelcase inserts.":"."),".*");
+    print("button returned from selectTracks: $button\n") if($debug >1);
+    # Pike out if user wasn't sure.
+    exit if($button ne 1);
+    # Now we have tracks selected for buring to CD, look for media and try to burn.
+    if($burn) {
+        my @blanks = checkBlankMedia;
+        while($#blanks < 0 &&
+            # No burnable disks found ask what to do
+           promptUserOKCan ("No blank, writable CDs found\nTry again or Skip burning?","Try Again","Skip") == 1) {
+            @blanks = checkBlankMedia;
+        }
+        if ($debug) {
+            my $plural = $#blanks > 0?'s ':' ';
+            print "Available blank, writable CD".$plural."in drive".$plural;
+            print join(' and ',@blanks)."\n";
+        }
+        # Burn tracks to each available writable media
+        foreach my $drive (@blanks) {
+            BurnCD($drive, @selectedTracks);
+        }
+    } else {
+        print "Not burning CDs\n" if($verbose);
+    }
 }
-
 # Assume CD labels are only wanted when CDs are burned
 createCdInserts(@selectedTracks) if $cdInserts;
 printCdInserts() if ($printCdInserts and $cdInserts);
 
 # Create podcast file and FTP to web server.
+my $sermonRegex = "welcome|script|message|benediction";
 if ($podcast) {
-	@selectedTracks = selectTracks("sermon podcast");
+    my $button;
+	($button,@selectedTracks) = selectTracks("sermon podcast.",$sermonRegex);
+    (print $OUT "Quitting from select podcast tracks\n" && exit) if($button ne 1);
 	createPodcast(@selectedTracks);
 } else { 
 	print $OUT "Not creating podcast\n" if($verbose);
 }
 
 # Upload podcast unless noupload or podcastFilePath doesn't exist
-if($upload) {
+if($upload) { # same as --ftp option
 	if(-r $podcastFilePath) {
 		uploadPodcast($podcastFilePath);
 	} else {
