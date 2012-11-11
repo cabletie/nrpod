@@ -117,7 +117,7 @@ my $cdInserts = 2;
 my $printCdInserts = 2;
 my $projectDate;
 my $upload = 2;
-my $podcastid3 = 1;
+my $podcastid3 = 2;
 my $updatetags;
 my $verbose = 0;
 my $gui = 1;
@@ -151,7 +151,7 @@ sub promptUser {
 #	$defaultValue = $defaultValue?$defaultValue:"";
 	my ($cdrv,$button_rv, $rv);
 	if($gui) {
-		$cdrv = `$pathToCD inputbox --title "nrpod" --informative-text "$promptString" --no-newline --text "$defaultValue" --button1 "OK"`;
+		$cdrv = `$pathToCD inputbox --title "nrpod" --informative-text "$promptString" --no-newline --text "$defaultValue" --button1 "OK" --icon 'gear'`;
 		($button_rv, $rv) = split /\n/, $cdrv, 2;
 	} else { # terminal interface only
 		$rv = $term->readline("$promptString ",$defaultValue);
@@ -164,7 +164,7 @@ sub promptUserAup {
 	# Usage: promptUserAup promptstring [defaultdirectory]
 	my($promptString,$defaultDirectory) = @_;
 	my $rv;
-	$rv = `$pathToCD fileselect --title "nrpod" --text "$promptString" --with-extensions .aup --with-directory $defaultDirectory`;
+	$rv = `$pathToCD fileselect --title "nrpod" --text "$promptString" --with-extensions .aup --with-directory $defaultDirectory --icon 'document'`;
 	return $rv;
 }
 
@@ -174,7 +174,7 @@ sub promptUserYN {
 #	$defaultValue = $defaultValue?$defaultValue:undef;
 	my ($rv, $cdrv);
 	if($gui) {
-		$cdrv = `$pathToCD yesno-msgbox --title "nrpod" --no-newline --label "$promptString"`;
+		$cdrv = `$pathToCD yesno-msgbox --title "nrpod" --no-newline --label "$promptString" --icon 'gear'`;
 		if($cdrv == 1) 
 			{$rv = "Y"} 
 		else 
@@ -191,7 +191,7 @@ sub promptUserOKCan {
 	$Button1 = "OK" unless defined $Button1;
 	$Button2 = "Cancel" unless defined $Button2;
 	if($gui) {
-	return `$pathToCD msgbox --title "nrpod" --label "$promptString" --button1 "$Button1" --button2 "$Button2"`;
+	return `$pathToCD msgbox --title "nrpod" --label "$promptString" --button1 "$Button1" --button2 "$Button2" --icon 'gear'`;
 	} else { # not GUI
 		return 1 if($term->readline("$promptString ",$Button1) =~ /^$Button1/);
 		return 2;
@@ -209,7 +209,7 @@ sub promptUserRadio {
             print "$i: $items[$i]\n";
         }
     }
-	my($button,$option) = split /\n/,`$pathToCD radio --title "nrpod" --label "$promptString" --button1 "$Button1" --button2 "$Button2" --items @items --selected 0`;
+	my($button,$option) = split /\n/,`$pathToCD radio --title "nrpod" --label "$promptString" --button1 "$Button1" --button2 "$Button2" --items @items --selected 0 'gear'`;
     print ("Selected: $option\n") if $verbose;
 	return $button,$option;
 }
@@ -230,7 +230,7 @@ sub promptUserForTracks {
         push(@checkedBoxes,$checked-1);
     }
     print "$pathToCD checkbox --title \"$title\" --label \"$label\" --width 600 --button1 OK --button2 Recalculate --button3 Cancel --debug --items @{$ref_tracks} --checked @checkedBoxes\n" if ($debug>1);
-    open CD, "$pathToCD checkbox --title \"$title\" --label \"$label\" --width 600 --button1 OK --button2 Recalculate --button3 Cancel --debug --items @{$ref_tracks} --checked @checkedBoxes|" or die "$pathToCD failed: $!";
+    open CD, "$pathToCD checkbox --title \"$title\" --label \"$label\" --width 600 --button1 OK --button2 Recalculate --button3 Cancel --debug --items @{$ref_tracks} --checked @checkedBoxes --icon 'gear'|" or die "$pathToCD failed: $!";
     chomp($button = <CD>);
     $boxes = <CD>;
     close CD;
@@ -642,7 +642,7 @@ sub checkTracks {
         my $msgtext = "$errors_found errors: " if($errors_found);
 	if($errors_found) {
 		if($fixLabels) {
-			message($msgtext."fixed",'info'}
+			message($msgtext."fixed",'info')}
 		else {
 			message($msgtext."NOT fixed",'caution')}
 	}
@@ -846,7 +846,7 @@ sub selectTracks {
 
     # Select tracks based on regex provided
     $index = 1;
-    print "Starting to look for matching filenames\n";
+    print "Starting to look for matching filenames\n" if($debug);
     foreach my $file (@filelist) {
         if($file =~ m/$selectRE/i){
             print "Matched $file\n";
@@ -855,7 +855,7 @@ sub selectTracks {
         }
         $index++;
     }
-    print "Selected Array: @selectedArray\n";
+    print "Selected Array: @selectedArray\n" if($debug);
 	# Define a default list of selected tracks (all of them)
 #	$initialSelectionString = "1";
 #	if($#filelist > 0) {
@@ -1168,7 +1168,7 @@ $projectDataDirectory = "$projectDirectory/$projectName$audacityProjectDataDirec
 # Setup directories constructed from projectName
 setupPaths $projectDirectory;
 
-print "projectDate: $projectDate\n" if $debug;
+print "projectDate: $projectDate\n" if ($debug and defined $projectDate);
 print "dateString: $dateString\n" if $debug;
 print "projectName: $projectName\n" if $debug;
 print "projectFilename: $projectFilename\n" if $debug;
