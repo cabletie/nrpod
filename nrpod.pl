@@ -21,7 +21,7 @@
 # Done 15. Fix CD label when there is no sequence number
 # Done 16. Make default tag year this year in configureProject. (removed year from template project file)
 # Done 17. Insert date into project name if none found when creating a new project (new project date string defaults to current date or to projectDate [--project-date] if provided on command line)
-# 18. re-factor configureProject()
+# Done 18. re-factor configureProject()
 # 19. Add support for Scripture readings
 # 20. Fix dialog boxes that say "Alert" - maybe add icons?
 
@@ -103,6 +103,7 @@ my $sermonSeries = "";
 my $sermonSeriesDefault = "General";
 my $sermonGenre = "Speech";
 my $sermonDescription = "";
+my $sermonRegexDefault = "welcome|script|message|benediction";
 
 # Options variables
 my $audacity = 2;
@@ -321,14 +322,16 @@ sub promptUserForOptions {
 sub message {
 	# Write to a message box and/or stdout
 	my $cdrv;
-	my($promptString) = @_;
+	my($promptString,$icon) = @_;
 	if($gui) {
-		$cdrv = `$pathToCD msgbox --title "nrpod" --label "$promptString" --button1 OK`;
+		$cdrv = `$pathToCD msgbox --title "nrpod" --text "$promptString" --button1 OK --icon $icon`;
 	}
-	print $OUT $promptString;
+	print $OUT "$icon: $promptString\n";
 }
 
 sub loadConfig {
+    # This stuff should all be moved to the config file and made specific to the installation instance
+
     # Figure out which machine we're on
     chomp(my $hostname = `hostname`);
     print $OUT "hostname: $hostname\n" if $debug > 1;
@@ -422,15 +425,17 @@ sub configureProject {
 	my $fileSafeRecordingName;
 	my $tagsWereModified;
 	
+	# Loads the config. file into a hash: Eventually, all config will be in here
+	#	Config::Simple->import_from('nrpod.cfg', \%Config);
+
     # Look for and open Audacity project file into an XML struct if it exists
     # Otherwise, ask t create a new one.
 	if(-e $projectFilePath) {
 		print $OUT "Reading from existing project file\n" if($verbose);
 		$PROJECT = XML::Smart->new($projectFilePath);
 	} else {
-#		print "$projectFilePath does not exist\n";
 		if (promptUserYN("$projectFilePath does not exist - create?", "Y") !~ /^Y/i) {
-				message "Don't know what project file to use - quitting\n";
+				message("Don't know what project file to use - quitting\n",'caution');
 				exit;
 			}
 		$updatetags = 1; # New project file - tags must be updated
@@ -438,165 +443,36 @@ sub configureProject {
 		$PROJECT = XML::Smart->new($projectTemplateFilename);
 	}
 
+    # For each of the key service parameters:
+    #   - pull from aup file XML,
+    #   - prompt for it or set from default if it doesn't exist
+    #   - keep track of if any were modified so we know if we have to write the aup file out again
+    # Silently use default (where no prompt is provided)
+    #
     $tagsWereModified |= configureID3Tag($PROJECT,\$eventTime,'TIME',$eventTimeDefault,"Enter time of event");
-#    $eventTime = $PROJECT->{project}{tags}{tag}('name','eq','TIME'){'value'};
-#	if($eventTime) {
-#		print $OUT "TIME tag: $eventTime\n" if $debug;
-#		$eventTime = promptUser("Message time",$eventTime) if $updatetags;
-#		$PROJECT->{project}{tags}{tag}('name','eq','TIME'){'value'} = $eventTime;
-#	} else {
-#		print $OUT "TIME attribute undefined in project file, creating.\n" if $debug;
-#		$eventTime = promptUser ("Enter time of event",$eventTimeDefault);
-#		my $newtag = {
-#			name	=> 'TIME' ,
-#			value	=> $eventTime
-#		};
-#		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
-#		$tagsWereModified = 1;
-#	}
-
-    $tagsWereModified |= configureID3Tag($PROJECT,\$recordingName,'ALBUM',sprintf($recordingNameDefault,$eventTime).$dateString,"Album (recording) name?");
-#	$recordingName = $PROJECT->{project}{tags}{tag}('name','eq','ALBUM'){'value'};
-#	if($recordingName) {
-#        # We'r updating so remove any existing datestring so we can update it
-#		$recordingName =~ s/\s(\d\d\d\d-\d\d-\d\d)//;
-#		print $OUT "ALBUM tag: $recordingName\n" if $debug;
-#		$recordingName = promptUser("Recording Name", $recordingName) if $updatetags;
-#		$newAlbumString = "$recordingName $dateString";
-#		$PROJECT->{project}{tags}{tag}('name','eq','ALBUM'){'value'} = $newAlbumString;
-#	} else {
-#		print $OUT "ALBUM attribute undefined in project file, creating." if($debug >1);
-#		$recordingName = promptUser ("Recording Name", sprintf($recordingNameDefault,$eventTime));
-#		## Add a new tag node:
-#		my $newtag = {
-#			name	=> 'ALBUM' ,
-#			value	=> $recordingName
-#		};
-#		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
-#		$tagsWereModified = 1;
-#	}
-#	print $OUT ("RecordingName: $recordingName\n") if ($debug);
+    $tagsWereModified |= configureID3Tag($PROJECT,\$recordingName,'ALBUM',sprintf($recordingNameDefault,$eventTime,$dateString),"Album (recording) name?");
+    # Make a filename-safe version of the string for use, well, in the filename
 	($fileSafeRecordingName = lc $recordingName) =~ tr/: /-_/;
-	
     $tagsWereModified |= configureID3Tag($PROJECT,\$projectArtistNameString,'ARTIST',$projectArtistNameStringDefault,);
-#	$projectArtistNameString = $PROJECT->{project}{tags}{tag}('name','eq','ARTIST'){'value'};
-#	if($projectArtistNameString) {
-#		print $OUT "ARTIST tag: $projectArtistNameString\n" if $debug;
-#		$projectArtistNameString = promptUser("Recording Artist", $projectArtistNameString) if $updatetags;
-#		$PROJECT->{project}{tags}{tag}('name','eq','ARTIST'){'value'} = $projectArtistNameString;
-#	} else {
-#		print $OUT "ARTIST attribute undefined in project file, creating." if($debug >1);
-##		$projectArtistNameString = promptUser "Artist", $projectArtistNameString;
-#		my $newtag = {
-#			name	=> 'ARTIST' ,
-#			value	=> $mp3ArtistNameString
-#		};
-#		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
-#		$tagsWereModified = 1;
-#	}
-	
     $tagsWereModified |= configureID3Tag($PROJECT,\$mp3YearString,'YEAR',$mp3YearStringDefault,);
-#	$mp3YearString = $PROJECT->{project}{tags}{tag}('name','eq','YEAR'){'value'};
-#	if($mp3YearString) {
-#		print $OUT "YEAR tag: $mp3YearString\n" if $debug;
-#		$mp3YearString = promptUser("Recording Year", $mp3YearString) if $updatetags;
-#		$PROJECT->{project}{tags}{tag}('name','eq','YEAR'){'value'} = $mp3YearString;
-#	} else {
-#		print $OUT "YEAR attribute undefined in project fie, creating." if($debug >1);
-#		$mp3YearString = $tm->year+1900;		
-#		my $newtag = {
-#			name	=> 'YEAR' ,
-#			value	=> $mp3YearString
-#		};
-#		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
-#		$tagsWereModified = 1;
-#	}
-	
     $tagsWereModified |= configureID3Tag($PROJECT,\$mp3GenreString,'GENRE',$mp3GenreStringDefault,);
-#	$mp3GenreString = $PROJECT->{project}{tags}{tag}('name','eq','GENRE'){'value'};
-#	if($mp3GenreString) {
-#		print $OUT "GENRE tag: $mp3GenreString\n" if $debug;
-#		$mp3GenreString = promptUser("Recording Genre", $mp3GenreString) if $updatetags;
-#		$PROJECT->{project}{tags}{tag}('name','eq','GENRE'){'value'} = $mp3GenreString;
-#	} else {
-#		print $OUT "GENRE attribute undefined in project file, creating." if($debug >1);
-#		$mp3GenreString = "Contemporary Christian";
-#		my $newtag = {
-#			name	=> 'GENRE' ,
-#			value	=> $mp3GenreString
-#		};
-#		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
-#		$tagsWereModified = 1;
-#	}
-	
-    # Silently use default
     $tagsWereModified |= configureID3Tag($PROJECT,\$projectTitleString,'TITLE',$projectTitleStringDefault,);
-#	$projectTitleString = $PROJECT->{project}{tags}{tag}('name','eq','TITLE'){'value'};
-#	if($projectTitleString) {
-#		print $OUT "TITLE tag: $projectTitleString\n" if $debug;
-#		$projectTitleString = promptUser("Track Title", $projectTitleString) if $updatetags;
-#		$PROJECT->{project}{tags}{tag}('name','eq','TITLE'){'value'} = $projectTitleString;
-#	} else {
-#		print $OUT "TITLE attribute undefined in project file, creating." if($debug >1);
-#		$projectTitleString = "Raw recording";
-#		my $newtag = {
-#			name	=> 'TITLE' ,
-#			value	=> $projectTitleString
-#		};
-#		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
-#		$tagsWereModified = 1;
-#	}
-	
-    $tagsWereModified |= configureID3Tag($PROJECT,\$preacher,'PREACHER',$preacherDefault, "Preacher/speaker name");
-#	$preacher = $PROJECT->{project}{tags}{tag}('name','eq','PREACHER'){'value'};
-#	if($preacher) {
-#		print $OUT "PREACHER tag: $preacher\n" if $debug;
-#		$preacher = promptUser("Preacher/speaker name", $preacher) if $updatetags;
-#		$PROJECT->{project}{tags}{tag}('name','eq','PREACHER'){'value'} = $preacher;
-#	} else {
-#		print $OUT "PREACHER attribute undefined in project file, creating." if($debug >1);
-#		$preacher = promptUser("Preacher/speaker name", $preacherDefault);
-#		my $newtag = {
-#			name	=> 'PREACHER' ,
-#			value	=> $preacher
-#		};
-#		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
-#		$tagsWereModified = 1;
-#	}
+	$tagsWereModified |= configureID3Tag($PROJECT,\$preacher,'PREACHER',$preacherDefault, "Preacher/speaker name");
+    # Make a filename-safe version of the string for use, well, in the filename
 	($safePreacher = $preacher) =~ tr/ /-/;
-
     $tagsWereModified |= configureID3Tag($PROJECT,\$sequenceNumber,'SEQUENCE',"",
         "Enter Sermon sequence number without the year or '#' (e.g. 23)\n".
         "Only used for placed minister. Leave blank otherwise");
-#	$sequenceNumber = $PROJECT->{project}{tags}{tag}('name','eq','SEQUENCE'){'value'};
-#	if($sequenceNumber) {
-#		print $OUT "SEQUENCE tag: $sequenceNumber\n" if $debug;
-#		$sequenceNumber = promptUser("Sermon sequence number",$sequenceNumber) if $updatetags;
-#		$PROJECT->{project}{tags}{tag}('name','eq','SEQUENCE'){'value'} = $sequenceNumber;
-#	} else {
-#		print $OUT "SEQUENCE attribute undefined in project file, creating.\n" if $debug;
-#		$sequenceNumber = promptUser (
-#        "Enter Sermon sequence number without the year or '#' (e.g. 23)\n".
-#        "Only used for placed minister. Leave blank otherwise",$sequenceNumber);
-#		my $newtag = {
-#			name	=> 'SEQUENCE' ,
-#			value	=> $sequenceNumber
-#		};
-#		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
-#		$tagsWereModified = 1;
-#	}
-    
     $tagsWereModified |= configureID3Tag($PROJECT,\$sermonTitle,'SERMONTITLE',"", "Message title?");
     $tagsWereModified |= configureID3Tag($PROJECT,\$sermonSeries,'SERIES',$sermonSeriesDefault,"Series?");
     $tagsWereModified |= configureID3Tag($PROJECT,\$sermonDescription,'COMMENTS',"", "Sermon description?");
 
+    # Now make a path for the location of the mp3 sermon podcast file
 	$podcastFilePath = "$mp3Directory/$dateString\_$fileSafeRecordingName\_$safePreacher\.mp3";
 	
-	# Save to a new project file if it was updated or missing tags were modified
+	# Save Audaciy project XML to a new project file if it was created, updated or missing tags were modified
 	$PROJECT->save($projectFilePath) if ($updatetags || $tagsWereModified);
 
-	# Loads the config. file into a hash: Eventually, all config will be in here
-	#	Config::Simple->import_from('nrpod.cfg', \%Config);
 
 } #configureProject
 
@@ -647,7 +523,7 @@ sub runAudacity {
 	# Launch Audacity
 	# Expect user to export to wav files as normal
 	##############################################
-	message "Starting audacity\nExport tracks using 'export multiple' to wav directory: $wavDirectory\nthen exit program\n";
+	message("Starting audacity\nExport tracks using 'export multiple' to wav directory: $wavDirectory\nthen exit program\n",'info');
 	print $OUT "Waiting for Audacity to exit ...";
         -f $projectFilePath || die "Can't find $projectFilePath\n";
         # convert to backslash paths for windows
@@ -758,7 +634,7 @@ sub checkTracks {
 	#		`"c:/program files/audacity/ffmpeg.exe" $wavfile $wavDirectory/$wavFilenamePrefix-$ti.mp3` if(-f $wavfile);
 		}
 	} else {
-		message "No tracks saved - nothing to check";
+		message ("No tracks saved - nothing to check",'caution');
 		return 1; # Error found
 	}
 	# Save to a new project file
@@ -766,12 +642,12 @@ sub checkTracks {
         my $msgtext = "$errors_found errors: " if($errors_found);
 	if($errors_found) {
 		if($fixLabels) {
-			message $msgtext."fixed"}
+			message($msgtext."fixed",'info'}
 		else {
-			message $msgtext."NOT fixed"}
+			message($msgtext."NOT fixed",'caution')}
 	}
 #	print "Errors " . $fixLabels?"fixed\n":"NOT fixed\n" if ($errors_found);
-	message "Finished Checking Tracks with $errors_found errors\n" if $debug>1;
+	message("Finished Checking Tracks with $errors_found errors\n",'info') if $debug>1;
 	print $OUT "OK\n" unless ($errors_found);
     $errors_found;
 } #checkTracks
@@ -1136,7 +1012,7 @@ sub printCdInserts {
 	push @args, "lp";
 	push @args, @CdInsertFileNames;
 	dumpCommand("$projectDirectory/printcdinserts.bash",@args);
-	system(@args) == 0 or message "printing failed: $!";
+	system(@args) == 0 or message("printing failed: $!",'stop');
 	print "done printing CD Inserts\n" if $verbose;
 }
 
@@ -1196,9 +1072,9 @@ sub uploadPodcast {
 	
 	print $OUT "Running ", join (":",@args), "\n";
 	dumpCommand("$projectDirectory/upload.bash",@args);
-	system(@args) == 0 or (message("File upload failed \($!\) - skipping\n") && return);	
+	system(@args) == 0 or (message("File upload failed \($!\) - skipping\n",'caution') && return);	
 	
-	message "Done uploading podcast\n";
+	message("Done uploading podcast\n",'network');
 }
 ##############################
 # main Program Start
@@ -1252,7 +1128,7 @@ if ($#ARGV >= 0) {
 		$projectFilePath = $given;
 		($projectName,$projectDirectory,) = fileparse($projectFilePath,".aup");
 		$projectDirectory =~ s!/$!!;
-		message("projectDirectory: $projectDirectory") if($debug>1);
+		print $OUT "projectDirectory: $projectDirectory\n" if($debug>1);
 		$projectFilename = fileparse($projectName);
 		print $OUT "full path to project file given: $projectFilename\n" if($debug);
 	} else { # no .aup extension, must be a directory
@@ -1274,14 +1150,14 @@ if ($#ARGV >= 0) {
     $projectName = "$dateString" . "$audacityProjectSuffix";
     $projectFilename = "$projectName\.aup";
 	$projectDirectory = "$baseDirectory/$recordingsDirectoryName/$projectName";
-	message("projectDirectory: $projectDirectory") if($debug>1);
+	ptiny $OUT ("projectDirectory: $projectDirectory\n") if($debug>1);
 	($button,$selection) = promptUserRadio("Choose option:","OK","Quit","\"Use $projectFilename\"","\"Browse for another project\"","\"Enter project name\"");
 	exit if($button == 2);
 	if($selection){
 		my $rv = promptUserAup("Select an existing project file","$baseDirectory/$recordingsDirectoryName") if($selection == 1);
 		$rv = promptUser("Enter a project name","$projectName") if($selection == 2);
 		chomp($rv);
-		message "going to exec with $0 @NEW_ARGV $rv\n" if($debug);
+		print $OUT "going to exec with $0 @NEW_ARGV $rv\n" if($debug);
 		exec "$0",@NEW_ARGV,"$rv";
 		exit;
 	}
@@ -1355,7 +1231,7 @@ while(checkTracks($projectFilePath)) {
    print "Missing wav files or incorrect label lengths.\n";
    my $r = promptUserOKCan ("Re-run Audacity to re-export wav files?","Re-run", "Skip");
    if($r == 1) {runAudacity;}
-   if($r == 2) {message "Quitting\n"; exit;}
+   if($r == 2) {message("Quitting\n",'stop'); exit;}
 }
 
 # Create individual mp3 files from wav files
@@ -1395,7 +1271,7 @@ createCdInserts(@selectedTracks) if $cdInserts;
 printCdInserts() if ($printCdInserts and $cdInserts);
 
 # Create podcast file and FTP to web server.
-my $sermonRegex = "welcome|script|message|benediction";
+my $sermonRegex = $sermonRegexDefault;
 if ($podcast) {
     my $button;
 	($button,@selectedTracks) = selectTracks("sermon podcast.",$sermonRegex);
@@ -1410,13 +1286,13 @@ if($upload) { # same as --ftp option
 	if(-r $podcastFilePath) {
 		uploadPodcast($podcastFilePath);
 	} else {
-		message "Can't upload: $podcastFilePath not found";
+		message("Can't upload: $podcastFilePath not found",'stop');
 	}
 } else {
 	print "Not uploading podcast\n" if($verbose);
 }
 
-message "Everything's done\n";
+message("Everything's done\n",'info');
 exit;
 __END__
 
