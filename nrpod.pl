@@ -23,6 +23,7 @@
 # Done 17. Insert date into project name if none found when creating a new project (new project date string defaults to current date or to projectDate [--project-date] if provided on command line)
 # 18. re-factor configureProject()
 # 19. Add support for Scripture readings
+# 20. Fix dialog boxes that say "Alert" - maybe add icons?
 
 
 # use strict;
@@ -62,18 +63,25 @@ my $audacityProjectSuffix = "_service";
 my $audacityProjectDataDirectorySuffix = "_data";
 my $preacherDefault = "Ian Hickingbotham";
 my $eventTimeDefault = "9:30am";
+my $eventTime = "";
 my $wavFilenamePrefix;
 my $pathToFfMpeg;
 my $pathToLame;
 my $newAlbumString;
 # mp3 prefixes are for individual mp3 files made from tracks
-my $mp3GenreString;
+my $mp3GenreStringDefault = "Christian worship";
+my $mp3GenreString = "";
+my $tm = localtime;
+my $mp3YearStringDefault = $tm->year+1900;
 my $mp3YearString;
-my $mp3ArtistNameString = "North Ringwood Uniting Church";
+my $mp3ArtistNameStringDefault = "North Ringwood Uniting Church";
+my $mp3ArtistNameString = "";
 # project prefixes are for the  aup project file
-my $projectArtistNameString = $mp3ArtistNameString;
+my $projectArtistNameStringDefault = $mp3ArtistNameStringDefault;
+my $projectArtistNameString = "";
 # Used as track title for whole service recording
-my $projectTitleString = "Message podcast";
+my $projectTitleStringDefault = "Message podcast";
+my $projectTitleString = "";
 my $pathToCdBurnerXp;
 my $pathToCreateCD;
 my $pathToCD;
@@ -81,10 +89,10 @@ my %drives;
 my %blanks;
 my $windows;
 my @selectedTracks;
-my $tm = localtime;
 my $dateString = sprintf("%04d-%02d-%02d",$tm->year+1900,$tm->mon+1,$tm->mday);
 my $pathToSox;
-my $recordingNameDefault = "NRUC %s Service";
+# The two strings (%s) in $recordingNameDefault are replaced with $eventTime and $dateString in that order
+my $recordingNameDefault = "NRUC %s Service %s";
 my $sequenceNumber;
 my $interactive;
 my $podcastFilePath;
@@ -414,9 +422,11 @@ sub configureProject {
 	my $fileSafeRecordingName;
 	my $tagsWereModified;
 	
+    # Look for and open Audacity project file into an XML struct if it exists
+    # Otherwise, ask t create a new one.
 	if(-e $projectFilePath) {
 		print $OUT "Reading from existing project file\n" if($verbose);
-		$PROJECT = XML::Smart->new($projectFilePath)
+		$PROJECT = XML::Smart->new($projectFilePath);
 	} else {
 #		print "$projectFilePath does not exist\n";
 		if (promptUserYN("$projectFilePath does not exist - create?", "Y") !~ /^Y/i) {
@@ -428,142 +438,153 @@ sub configureProject {
 		$PROJECT = XML::Smart->new($projectTemplateFilename);
 	}
 
-    $eventTime = $PROJECT->{project}{tags}{tag}('name','eq','TIME'){'value'};
-	if($eventTime) {
-		print $OUT "TIME tag: $eventTime\n" if $debug;
-		$eventTime = promptUser("Message time",$eventTime) if $updatetags;
-		$PROJECT->{project}{tags}{tag}('name','eq','TIME'){'value'} = $eventTime;
-	} else {
-		print $OUT "TIME attribute undefined in project file, creating.\n" if $debug;
-		$eventTime = promptUser ("Enter time of event",$eventTimeDefault);
-		my $newtag = {
-			name	=> 'TIME' ,
-			value	=> $eventTime
-		};
-		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
-		$tagsWereModified = 1;
-	}
+    $tagsWereModified |= configureID3Tag($PROJECT,\$eventTime,'TIME',$eventTimeDefault,"Enter time of event");
+#    $eventTime = $PROJECT->{project}{tags}{tag}('name','eq','TIME'){'value'};
+#	if($eventTime) {
+#		print $OUT "TIME tag: $eventTime\n" if $debug;
+#		$eventTime = promptUser("Message time",$eventTime) if $updatetags;
+#		$PROJECT->{project}{tags}{tag}('name','eq','TIME'){'value'} = $eventTime;
+#	} else {
+#		print $OUT "TIME attribute undefined in project file, creating.\n" if $debug;
+#		$eventTime = promptUser ("Enter time of event",$eventTimeDefault);
+#		my $newtag = {
+#			name	=> 'TIME' ,
+#			value	=> $eventTime
+#		};
+#		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
+#		$tagsWereModified = 1;
+#	}
 
-	$recordingName = $PROJECT->{project}{tags}{tag}('name','eq','ALBUM'){'value'};
-	if($recordingName) {
-        # We'r updating so remove any existing datestring so we can update it
-		$recordingName =~ s/\s(\d\d\d\d-\d\d-\d\d)//;
-		print $OUT "ALBUM tag: $recordingName\n" if $debug;
-		$recordingName = promptUser("Recording Name", $recordingName) if $updatetags;
-		$newAlbumString = "$recordingName $dateString";
-		$PROJECT->{project}{tags}{tag}('name','eq','ALBUM'){'value'} = $newAlbumString;
-	} else {
-		print $OUT "ALBUM attribute undefined in project file, creating." if($debug >1);
-		$recordingName = promptUser ("Recording Name", sprintf($recordingNameDefault,$eventTime));
-		## Add a new tag node:
-		my $newtag = {
-			name	=> 'ALBUM' ,
-			value	=> $recordingName
-		};
-		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
-		$tagsWereModified = 1;
-	}
-	print $OUT ("RecordingName: $recordingName\n") if ($debug);
+    $tagsWereModified |= configureID3Tag($PROJECT,\$recordingName,'ALBUM',sprintf($recordingNameDefault,$eventTime).$dateString,"Album (recording) name?");
+#	$recordingName = $PROJECT->{project}{tags}{tag}('name','eq','ALBUM'){'value'};
+#	if($recordingName) {
+#        # We'r updating so remove any existing datestring so we can update it
+#		$recordingName =~ s/\s(\d\d\d\d-\d\d-\d\d)//;
+#		print $OUT "ALBUM tag: $recordingName\n" if $debug;
+#		$recordingName = promptUser("Recording Name", $recordingName) if $updatetags;
+#		$newAlbumString = "$recordingName $dateString";
+#		$PROJECT->{project}{tags}{tag}('name','eq','ALBUM'){'value'} = $newAlbumString;
+#	} else {
+#		print $OUT "ALBUM attribute undefined in project file, creating." if($debug >1);
+#		$recordingName = promptUser ("Recording Name", sprintf($recordingNameDefault,$eventTime));
+#		## Add a new tag node:
+#		my $newtag = {
+#			name	=> 'ALBUM' ,
+#			value	=> $recordingName
+#		};
+#		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
+#		$tagsWereModified = 1;
+#	}
+#	print $OUT ("RecordingName: $recordingName\n") if ($debug);
 	($fileSafeRecordingName = lc $recordingName) =~ tr/: /-_/;
 	
-	$projectArtistNameString = $PROJECT->{project}{tags}{tag}('name','eq','ARTIST'){'value'};
-	if($projectArtistNameString) {
-		print $OUT "ARTIST tag: $projectArtistNameString\n" if $debug;
-		$projectArtistNameString = promptUser("Recording Artist", $projectArtistNameString) if $updatetags;
-		$PROJECT->{project}{tags}{tag}('name','eq','ARTIST'){'value'} = $projectArtistNameString;
-	} else {
-		print $OUT "ARTIST attribute undefined in project file, creating." if($debug >1);
-#		$projectArtistNameString = promptUser "Artist", $projectArtistNameString;
-		my $newtag = {
-			name	=> 'ARTIST' ,
-			value	=> $mp3ArtistNameString
-		};
-		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
-		$tagsWereModified = 1;
-	}
+    $tagsWereModified |= configureID3Tag($PROJECT,\$projectArtistNameString,'ARTIST',$projectArtistNameStringDefault,);
+#	$projectArtistNameString = $PROJECT->{project}{tags}{tag}('name','eq','ARTIST'){'value'};
+#	if($projectArtistNameString) {
+#		print $OUT "ARTIST tag: $projectArtistNameString\n" if $debug;
+#		$projectArtistNameString = promptUser("Recording Artist", $projectArtistNameString) if $updatetags;
+#		$PROJECT->{project}{tags}{tag}('name','eq','ARTIST'){'value'} = $projectArtistNameString;
+#	} else {
+#		print $OUT "ARTIST attribute undefined in project file, creating." if($debug >1);
+##		$projectArtistNameString = promptUser "Artist", $projectArtistNameString;
+#		my $newtag = {
+#			name	=> 'ARTIST' ,
+#			value	=> $mp3ArtistNameString
+#		};
+#		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
+#		$tagsWereModified = 1;
+#	}
 	
-	$mp3YearString = $PROJECT->{project}{tags}{tag}('name','eq','YEAR'){'value'};
-	if($mp3YearString) {
-		print $OUT "YEAR tag: $mp3YearString\n" if $debug;
-		$mp3YearString = promptUser("Recording Year", $mp3YearString) if $updatetags;
-		$PROJECT->{project}{tags}{tag}('name','eq','YEAR'){'value'} = $mp3YearString;
-	} else {
-		print $OUT "YEAR attribute undefined in project fie, creating." if($debug >1);
-		$mp3YearString = $tm->year+1900;		
-		my $newtag = {
-			name	=> 'YEAR' ,
-			value	=> $mp3YearString
-		};
-		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
-		$tagsWereModified = 1;
-	}
+    $tagsWereModified |= configureID3Tag($PROJECT,\$mp3YearString,'YEAR',$mp3YearStringDefault,);
+#	$mp3YearString = $PROJECT->{project}{tags}{tag}('name','eq','YEAR'){'value'};
+#	if($mp3YearString) {
+#		print $OUT "YEAR tag: $mp3YearString\n" if $debug;
+#		$mp3YearString = promptUser("Recording Year", $mp3YearString) if $updatetags;
+#		$PROJECT->{project}{tags}{tag}('name','eq','YEAR'){'value'} = $mp3YearString;
+#	} else {
+#		print $OUT "YEAR attribute undefined in project fie, creating." if($debug >1);
+#		$mp3YearString = $tm->year+1900;		
+#		my $newtag = {
+#			name	=> 'YEAR' ,
+#			value	=> $mp3YearString
+#		};
+#		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
+#		$tagsWereModified = 1;
+#	}
 	
-	$mp3GenreString = $PROJECT->{project}{tags}{tag}('name','eq','GENRE'){'value'};
-	if($mp3GenreString) {
-		print $OUT "GENRE tag: $mp3GenreString\n" if $debug;
-		$mp3GenreString = promptUser("Recording Genre", $mp3GenreString) if $updatetags;
-		$PROJECT->{project}{tags}{tag}('name','eq','GENRE'){'value'} = $mp3GenreString;
-	} else {
-		print $OUT "GENRE attribute undefined in project file, creating." if($debug >1);
-		$mp3GenreString = "Contemporary Christian";
-		my $newtag = {
-			name	=> 'GENRE' ,
-			value	=> $mp3GenreString
-		};
-		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
-		$tagsWereModified = 1;
-	}
+    $tagsWereModified |= configureID3Tag($PROJECT,\$mp3GenreString,'GENRE',$mp3GenreStringDefault,);
+#	$mp3GenreString = $PROJECT->{project}{tags}{tag}('name','eq','GENRE'){'value'};
+#	if($mp3GenreString) {
+#		print $OUT "GENRE tag: $mp3GenreString\n" if $debug;
+#		$mp3GenreString = promptUser("Recording Genre", $mp3GenreString) if $updatetags;
+#		$PROJECT->{project}{tags}{tag}('name','eq','GENRE'){'value'} = $mp3GenreString;
+#	} else {
+#		print $OUT "GENRE attribute undefined in project file, creating." if($debug >1);
+#		$mp3GenreString = "Contemporary Christian";
+#		my $newtag = {
+#			name	=> 'GENRE' ,
+#			value	=> $mp3GenreString
+#		};
+#		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
+#		$tagsWereModified = 1;
+#	}
 	
-	$projectTitleString = $PROJECT->{project}{tags}{tag}('name','eq','TITLE'){'value'};
-	if($projectTitleString) {
-		print $OUT "TITLE tag: $projectTitleString\n" if $debug;
-		$projectTitleString = promptUser("Track Title", $projectTitleString) if $updatetags;
-		$PROJECT->{project}{tags}{tag}('name','eq','TITLE'){'value'} = $projectTitleString;
-	} else {
-		print $OUT "TITLE attribute undefined in project file, creating." if($debug >1);
-		$projectTitleString = "Raw recording";
-		my $newtag = {
-			name	=> 'TITLE' ,
-			value	=> $projectTitleString
-		};
-		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
-		$tagsWereModified = 1;
-	}
+    # Silently use default
+    $tagsWereModified |= configureID3Tag($PROJECT,\$projectTitleString,'TITLE',$projectTitleStringDefault,);
+#	$projectTitleString = $PROJECT->{project}{tags}{tag}('name','eq','TITLE'){'value'};
+#	if($projectTitleString) {
+#		print $OUT "TITLE tag: $projectTitleString\n" if $debug;
+#		$projectTitleString = promptUser("Track Title", $projectTitleString) if $updatetags;
+#		$PROJECT->{project}{tags}{tag}('name','eq','TITLE'){'value'} = $projectTitleString;
+#	} else {
+#		print $OUT "TITLE attribute undefined in project file, creating." if($debug >1);
+#		$projectTitleString = "Raw recording";
+#		my $newtag = {
+#			name	=> 'TITLE' ,
+#			value	=> $projectTitleString
+#		};
+#		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
+#		$tagsWereModified = 1;
+#	}
 	
-	$preacher = $PROJECT->{project}{tags}{tag}('name','eq','PREACHER'){'value'};
-	if($preacher) {
-		print $OUT "PREACHER tag: $preacher\n" if $debug;
-		$preacher = promptUser("Preacher/speaker name", $preacher) if $updatetags;
-		$PROJECT->{project}{tags}{tag}('name','eq','PREACHER'){'value'} = $preacher;
-	} else {
-		print $OUT "PREACHER attribute undefined in project file, creating." if($debug >1);
-		$preacher = promptUser("Preacher/speaker name", $preacherDefault);
-		my $newtag = {
-			name	=> 'PREACHER' ,
-			value	=> $preacher
-		};
-		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
-		$tagsWereModified = 1;
-	}
+    $tagsWereModified |= configureID3Tag($PROJECT,\$preacher,'PREACHER',$preacherDefault, "Preacher/speaker name");
+#	$preacher = $PROJECT->{project}{tags}{tag}('name','eq','PREACHER'){'value'};
+#	if($preacher) {
+#		print $OUT "PREACHER tag: $preacher\n" if $debug;
+#		$preacher = promptUser("Preacher/speaker name", $preacher) if $updatetags;
+#		$PROJECT->{project}{tags}{tag}('name','eq','PREACHER'){'value'} = $preacher;
+#	} else {
+#		print $OUT "PREACHER attribute undefined in project file, creating." if($debug >1);
+#		$preacher = promptUser("Preacher/speaker name", $preacherDefault);
+#		my $newtag = {
+#			name	=> 'PREACHER' ,
+#			value	=> $preacher
+#		};
+#		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
+#		$tagsWereModified = 1;
+#	}
 	($safePreacher = $preacher) =~ tr/ /-/;
-	
-	$sequenceNumber = $PROJECT->{project}{tags}{tag}('name','eq','SEQUENCE'){'value'};
-	if($sequenceNumber) {
-		print $OUT "SEQUENCE tag: $sequenceNumber\n" if $debug;
-		$sequenceNumber = promptUser("Sermon sequence number",$sequenceNumber) if $updatetags;
-		$PROJECT->{project}{tags}{tag}('name','eq','SEQUENCE'){'value'} = $sequenceNumber;
-	} else {
-		print $OUT "SEQUENCE attribute undefined in project file, creating.\n" if $debug;
-		$sequenceNumber = promptUser (
+
+    $tagsWereModified |= configureID3Tag($PROJECT,\$sequenceNumber,'SEQUENCE',"",
         "Enter Sermon sequence number without the year or '#' (e.g. 23)\n".
-        "Only used for placed minister. Leave blank otherwise",$sequenceNumber);
-		my $newtag = {
-			name	=> 'SEQUENCE' ,
-			value	=> $sequenceNumber
-		};
-		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
-		$tagsWereModified = 1;
-	}
+        "Only used for placed minister. Leave blank otherwise");
+#	$sequenceNumber = $PROJECT->{project}{tags}{tag}('name','eq','SEQUENCE'){'value'};
+#	if($sequenceNumber) {
+#		print $OUT "SEQUENCE tag: $sequenceNumber\n" if $debug;
+#		$sequenceNumber = promptUser("Sermon sequence number",$sequenceNumber) if $updatetags;
+#		$PROJECT->{project}{tags}{tag}('name','eq','SEQUENCE'){'value'} = $sequenceNumber;
+#	} else {
+#		print $OUT "SEQUENCE attribute undefined in project file, creating.\n" if $debug;
+#		$sequenceNumber = promptUser (
+#        "Enter Sermon sequence number without the year or '#' (e.g. 23)\n".
+#        "Only used for placed minister. Leave blank otherwise",$sequenceNumber);
+#		my $newtag = {
+#			name	=> 'SEQUENCE' ,
+#			value	=> $sequenceNumber
+#		};
+#		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
+#		$tagsWereModified = 1;
+#	}
     
     $tagsWereModified |= configureID3Tag($PROJECT,\$sermonTitle,'SERMONTITLE',"", "Message title?");
     $tagsWereModified |= configureID3Tag($PROJECT,\$sermonSeries,'SERIES',$sermonSeriesDefault,"Series?");
@@ -577,12 +598,6 @@ sub configureProject {
 	# Loads the config. file into a hash: Eventually, all config will be in here
 	#	Config::Simple->import_from('nrpod.cfg', \%Config);
 
-	# Grab additional details for podcast
-#    if($podcast) {
-#        $sermonTitle = promptUser("Message title?",$sermonTitle);
-#        $sermonSeries = promptUser("Series?", $sermonSeries);
-#        $sermonDescription = promptUser("Sermon decription?", $sermonDescription);
-#    }
 } #configureProject
 
 ##################################################
@@ -614,7 +629,7 @@ sub configureID3Tag {
                 name	=> $tagName ,
                 value	=> ${$ref_var}
             };
-        } else { # no prompt, therefore don't prompt and just use provided default
+        } else { # no prompt, silently use provided default
             print "Setting $tagName to default: $default" if $debug;
             $newtag = {
                 name	=> $tagName ,
