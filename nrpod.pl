@@ -426,7 +426,7 @@ sub configureProject {
     $eventTime = $PROJECT->{project}{tags}{tag}('name','eq','TIME'){'value'};
 	if($eventTime) {
 		print $OUT "TIME tag: $eventTime\n" if $debug;
-		$sequenceNumber = promptUser("Message time",$eventTime) if $updatetags;
+		$eventTime = promptUser("Message time",$eventTime) if $updatetags;
 		$PROJECT->{project}{tags}{tag}('name','eq','TIME'){'value'} = $eventTime;
 	} else {
 		print $OUT "TIME attribute undefined in project file, creating.\n" if $debug;
@@ -1036,7 +1036,9 @@ sub createCdInserts {
 	#my $sequenceNumber = promptUser "Sermon sequence number without the year or '#' (e.g. 23)";
 	my $yr = $tm->year % 100;
 
-	my $sequenceString = $sequenceNumber !~ /\s*/?" \#$yr\-$sequenceNumber":"";
+	my $sequenceString = ($sequenceNumber !~ /\s*/)?" \#$yr\-$sequenceNumber":"";
+    print "Sequence number: $sequenceNumber\n" if $debug;
+    print "Sequence string: $sequenceString\n" if $debug;
 	# use cdlabelgen to create the ps file
 	# Command format example is:
 	# ./cdlabelgen --category "NRUC 9:30am Service Ian Hickingbotham #09-25(Master)" --items "line one%line two%line three" --slim-case --no-date --output-file cover.ps
@@ -1323,7 +1325,7 @@ createCdInserts(@selectedTracks) if $cdInserts;
 printCdInserts() if ($printCdInserts and $cdInserts);
 
 # Create podcast file and FTP to web server.
-my $sermonRegex = "welcome|script|message|benediction|prayer";
+my $sermonRegex = "welcome|script|message|benediction";
 if ($podcast) {
     my $button;
 	($button,@selectedTracks) = selectTracks("sermon podcast.",$sermonRegex);
