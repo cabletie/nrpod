@@ -1023,17 +1023,19 @@ sub createCdInserts {
 	my @items;
 	my $totalLength;
 	my @args;
+    # Start with sermon title and series as the first line,
+    # include a nothing entry to create a blank line between the title and the first track
+    push(@items,"$sermonTitle ($sermonSeries)","");
 	print "Creating CD inserts\n";
 	foreach my $item (@tracks) {
 		my $timeString = sec2Hms $item -> {'length'};
 		$totalLength += $item -> {'length'};
+        # Add each track in mono-spaced font {#M}
 		my $entry = sprintf("{#M}%-38s %12s",basename($item -> {'filename'},".wav"),$timeString);
 		push @items,$entry;
 	}
+    # Add tracks total line in mono-spaced bold {#MB}
 	push @items, sprintf("{#MB}%51s", "Total:". sec2Hms($totalLength));
-	#my $recordingName = promptUser "Recording Name", "NRUC 9:30am Service";
-	#my $preacher = promptUser "Preacher/speaker name", "Ian Hickingbotham";
-	#my $sequenceNumber = promptUser "Sermon sequence number without the year or '#' (e.g. 23)";
 	my $yr = $tm->year % 100;
 
     # Substitute an non-empty sequenceNumber for the full thing and place result into sequenceString
