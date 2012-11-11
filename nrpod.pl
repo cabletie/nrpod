@@ -1036,9 +1036,10 @@ sub createCdInserts {
 	#my $sequenceNumber = promptUser "Sermon sequence number without the year or '#' (e.g. 23)";
 	my $yr = $tm->year % 100;
 
-	my $sequenceString = ($sequenceNumber !~ /\s*/)?" \#$yr\-$sequenceNumber":"";
-    print "Sequence number: $sequenceNumber\n" if $debug;
-    print "Sequence string: $sequenceString\n" if $debug;
+    # Substitute an non-empty sequenceNumber for the full thing and place result into sequenceString
+	(my $sequenceString = $sequenceNumber) =~ s/\d+/\#$yr\-$sequenceNumber/;
+    print "Sequence number: $sequenceNumber\n" if $debug>1;
+    print "Sequence string: $sequenceString\n" if $debug>1;
 	# use cdlabelgen to create the ps file
 	# Command format example is:
 	# ./cdlabelgen --category "NRUC 9:30am Service Ian Hickingbotham #09-25(Master)" --items "line one%line two%line three" --slim-case --no-date --output-file cover.ps
