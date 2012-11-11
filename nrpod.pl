@@ -1323,7 +1323,7 @@ createCdInserts(@selectedTracks) if $cdInserts;
 printCdInserts() if ($printCdInserts and $cdInserts);
 
 # Create podcast file and FTP to web server.
-my $sermonRegex = "welcome|script|message|benediction";
+my $sermonRegex = "welcome|script|message|benediction|prayer";
 if ($podcast) {
     my $button;
 	($button,@selectedTracks) = selectTracks("sermon podcast.",$sermonRegex);
