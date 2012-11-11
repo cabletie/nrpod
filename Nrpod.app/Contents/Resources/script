@@ -58,6 +58,7 @@ my $worshipServiceSuffix = "_service";
 my $audacityProjectSuffix = "_service";
 my $audacityProjectDataDirectorySuffix = "_data";
 my $preacherDefault = "Ian Hickingbotham";
+my $eventTimeDefault = "9:30am";
 my $wavFilenamePrefix;
 my $pathToFfMpeg;
 my $pathToLame;
@@ -80,7 +81,7 @@ my @selectedTracks;
 my $tm = localtime;
 my $dateString = sprintf("%04d-%02d-%02d",$tm->year+1900,$tm->mon+1,$tm->mday);
 my $pathToSox;
-my $recordingNameDefault = "NRUC Service of worship";
+my $recordingNameDefault = "NRUC %s Service";
 my $sequenceNumber;
 my $interactive;
 my $podcastFilePath;
@@ -421,7 +422,23 @@ sub configureProject {
 		print $OUT "Creating new project file " . basename($projectFilePath) . " from " . basename($projectTemplateFilename) . "\n" if($verbose);
 		$PROJECT = XML::Smart->new($projectTemplateFilename);
 	}
-	
+
+    $eventTime = $PROJECT->{project}{tags}{tag}('name','eq','TIME'){'value'};
+	if($eventTime) {
+		print $OUT "TIME tag: $eventTime\n" if $debug;
+		$sequenceNumber = promptUser("Message time",$eventTime) if $updatetags;
+		$PROJECT->{project}{tags}{tag}('name','eq','TIME'){'value'} = $eventTime;
+	} else {
+		print $OUT "TIME attribute undefined in project file, creating.\n" if $debug;
+		$eventTime = promptUser ("Enter time of event",$eventTimeDefault);
+		my $newtag = {
+			name	=> 'TIME' ,
+			value	=> $eventTime
+		};
+		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
+		$tagsWereModified = 1;
+	}
+
 	$recordingName = $PROJECT->{project}{tags}{tag}('name','eq','ALBUM'){'value'};
 	if($recordingName) {
 		$recordingName =~ s/\s(\d\d\d\d-\d\d-\d\d)//;
@@ -431,7 +448,7 @@ sub configureProject {
 		$PROJECT->{project}{tags}{tag}('name','eq','ALBUM'){'value'} = $newAlbumString;
 	} else {
 		print $OUT "ALBUM attribute undefined in project file, creating." if($debug >1);
-		$recordingName = promptUser ("Recording Name", $recordingNameDefault);
+		$recordingName = promptUser ("Recording Name", sprintf($recordingNameDefault,$eventTime));
 		## Add a new tag node:
 		my $newtag = {
 			name	=> 'ALBUM' ,
@@ -532,8 +549,8 @@ sub configureProject {
 	} else {
 		print $OUT "SEQUENCE attribute undefined in project file, creating.\n" if $debug;
 		$sequenceNumber = promptUser (
-        	"Enter Sermon sequence number without the year or '#' (e.g. 23)\n".
-			"Only used for placed minister. Leave blank otherwise",$sequenceNumber);
+        "Enter Sermon sequence number without the year or '#' (e.g. 23)\n".
+        "Only used for placed minister. Leave blank otherwise",$sequenceNumber);
 		my $newtag = {
 			name	=> 'SEQUENCE' ,
 			value	=> $sequenceNumber
@@ -541,7 +558,7 @@ sub configureProject {
 		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
 		$tagsWereModified = 1;
 	}
-
+	   
 	$podcastFilePath = "$mp3Directory/$dateString\_$fileSafeRecordingName\_$safePreacher\.mp3";
 	
 	# Save to a new project file if it was updated or missing tags were modified
@@ -552,8 +569,7 @@ sub configureProject {
 
 	# Grab additional details for podcast
     if($podcast) {
-        $sermonTitle = promptUser("Sermon title?",$sermonTitle);
-        $preacher = promptUser("Preacher name?", $preacher) unless defined $preacher;
+        $sermonTitle = promptUser("Message title?",$sermonTitle);
         $sermonSeries = promptUser("Series?", $sermonSeries);
         $sermonDescription = promptUser("Sermon decription?", $sermonDescription);
     }
