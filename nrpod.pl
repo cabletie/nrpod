@@ -16,14 +16,14 @@
 # Done 10. Don't die at any failed command - change to pass through if not critical.
 # 11. Add leveling/normalizing via sox
 # Done 12. FTP progress bar
-# 13. Add "comments" field in ID3 tags/parameters
+# Done 13. Add "comments" field in ID3 tags/parameters
 # Done 14. Fix location of new project file (currently defaults to .)
 # Done 15. Fix CD label when there is no sequence number
 # Done 16. Make default tag year this year in configureProject. (removed year from template project file)
 # Done 17. Insert date into project name if none found when creating a new project (new project date string defaults to current date or to projectDate [--project-date] if provided on command line)
 # Done 18. re-factor configureProject()
 # 19. Add support for Scripture readings
-# 20. Fix dialog boxes that say "Alert" - maybe add icons?
+# Done 20. Fix dialog boxes that say "Alert" - maybe add icons? (message now has two parts - text and informative-text
 
 
 # use strict;
@@ -67,7 +67,7 @@ my $eventTime = "";
 my $wavFilenamePrefix;
 my $pathToFfMpeg;
 my $pathToLame;
-my $newAlbumString;
+#my $newAlbumString;
 # mp3 prefixes are for individual mp3 files made from tracks
 my $mp3GenreStringDefault = "Christian worship";
 my $mp3GenreString = "";
@@ -89,6 +89,8 @@ my %drives;
 my %blanks;
 my $windows;
 my @selectedTracks;
+my @burnSelectedTracks;
+my @podcastSelectedTracks;
 my $dateString = sprintf("%04d-%02d-%02d",$tm->year+1900,$tm->mon+1,$tm->mday);
 my $pathToSox;
 # The two strings (%s) in $recordingNameDefault are replaced with $eventTime and $dateString in that order
@@ -105,12 +107,16 @@ my $sermonGenre = "Speech";
 my $sermonDescription = "";
 my $sermonRegexDefault = "welcome|script|message|benediction";
 
+# Error tracking
+my $globalErrorCount = 0;
+my $globalErrorMessages = "Message log:\n";
+
 # Options variables
 my $audacity = 2;
 my $help;
 my $man;
 my $burn = 2;
-my $mp3 = 2;
+my $mp3 = 0;
 my $fixLabels = 2;
 my $podcast = 2;
 my $cdInserts = 2;
@@ -251,6 +257,7 @@ sub promptUserForTracks {
 	return $button;
 }
 
+# Presents and requsts selection of a subset of options
 sub promptUserForOptions {
 	my @optionList = (
 		{name => "Run audacity",ref => \$audacity},
@@ -322,11 +329,21 @@ sub promptUserForOptions {
 sub message {
 	# Write to a message box and/or stdout
 	my $cdrv;
-	my($promptString,$icon) = @_;
+	my($promptString,$icon,$informativeText) = @_;
 	if($gui) {
-		$cdrv = `$pathToCD msgbox --title "nrpod" --text "$promptString" --button1 OK --icon $icon`;
+		$cdrv = `$pathToCD msgbox --title "nrpod" --text "$promptString" --informative-text "\'$informativeText\'" --button1 OK --icon $icon`;
 	}
-	print $OUT "$icon: $promptString\n";
+	print $OUT "$icon: $promptString ($informativeText)\n";
+}
+
+sub longMessage {
+    # Write many lines in a text box as a message (not editable)
+	my $cdrv;
+	my($informativeText,$longMessageText) = @_;
+	if($gui) {
+		$cdrv = `$pathToCD textbox --title "nrpod" --text "$longMessageText" --informative-text "$informativeText" --button1 OK`;
+	}
+	print $OUT "$informativeText: $longMessageText\n";
 }
 
 sub loadConfig {
@@ -398,24 +415,6 @@ sub setupPaths { # Usage: setupPaths projectDirectory
 	-f $projectTemplateFilename || die "can't find template file: $projectTemplateFilename";
 } #setupPaths
 
-sub updateTag {
-	my $tagname = shift;
-	$tag = $PROJECT->{project}{tags}{tag}('name','eq','ARTIST'){'value'};
-	if($tag) {
-		print $OUT "ARTIST tag: $tag\n" if $debug;
-		$projectArtistNameString = promptUser("Recording Artist", $tag);
-		$PROJECT->{project}{tags}{tag}('name','eq','ARTIST'){'value'} = $mp3ArtistNameString;
-	} else {
-		print $OUT "ARTIST attribute undefined in project file, creating." if($debug >1);
-#		$projectArtistNameString = promptUser "Artist", $projectArtistNameString;
-		my $newtag = {
-			name	=> 'ARTIST' ,
-			value	=> $projectArtistNameString
-		};
-		push(@{$PROJECT->{project}{tags}{tag}} , $newtag) ;
-	}
-}
-
 sub configureProject {
 	# Open the aup project file and get tags or set them from command prompts
 	
@@ -435,10 +434,11 @@ sub configureProject {
 		$PROJECT = XML::Smart->new($projectFilePath);
 	} else {
 		if (promptUserYN("$projectFilePath does not exist - create?", "Y") !~ /^Y/i) {
-				message("Don't know what project file to use - quitting\n",'caution');
+				message("Don't know what project file to use - quitting\n",'caution',"Try again.");
 				exit;
 			}
 		$updatetags = 1; # New project file - tags must be updated
+        $audacity = 1; # Nothing in the default audacity project, therefore no tracks therefore must run audacity
 		print $OUT "Creating new project file " . basename($projectFilePath) . " from " . basename($projectTemplateFilename) . "\n" if($verbose);
 		$PROJECT = XML::Smart->new($projectTemplateFilename);
 	}
@@ -523,7 +523,7 @@ sub runAudacity {
 	# Launch Audacity
 	# Expect user to export to wav files as normal
 	##############################################
-	message("Starting audacity\nExport tracks using 'export multiple' to wav directory: $wavDirectory\nthen exit program\n",'info');
+	message("Starting audacity",'info',"Export tracks using 'export multiple' to wav directory: $wavDirectory\nthen quit Audacity to continue.\n");
 	print $OUT "Waiting for Audacity to exit ...";
         -f $projectFilePath || die "Can't find $projectFilePath\n";
         # convert to backslash paths for windows
@@ -545,17 +545,22 @@ sub convertWav2Mp3 {
     my $mp3 = shift;
 	my @args;
 	@args = ("$pathToLame", $debug<3?"--quiet":"",
-                 "--tl", "$newAlbumString",
+                 "--tl", "$recordingName",
                  "--ty", $mp3YearString,
                  "--tt", "$trackTitle",
                  "--tn", $trackNumber."/".$numberOfTracks,
-                 "--ta", "$mp3ArtistNameString",
+                 "--ta", "$projectArtistNameString",
 		 "--tg", "$mp3GenreString",
-		 $wav,
-		 $mp3);
+		 "$wav",
+		 "$mp3");
 	print $OUT "Running: @args\n" if $debug > 2;
-	dumpCommand("$projectDirectory/lame.bash",@args);
-	system(@args) == 0 or die "system @args failed: $!";
+	dumpCommand("$projectDirectory/track_".$trackNumber."_lame.bash",@args);
+	if(system(@args) != 0) {
+        my $whatWentBang = $!;
+        message ("system call failed:",'stop',"@args: $whatWentBang");
+        $globalErrorMessages .= "system @args failed: $whatWentBang\n";
+        $globalErrorCount++;
+    }
 	print $OUT "finished\n" if $debug > 2;
 }
 
@@ -567,16 +572,21 @@ sub runFfMpeg {
 	my @args;
 	@args = ("$pathToFfMpeg","-y",
                  "-i", $wav,
-                 "-album", $newAlbumString,
+                 "-album", $recordingName,
                  "-year", $mp3YearString,
                  "-title",  $trackTitle,
                  "-track", $trackNumber,
-                 "-author", $mp3ArtistNameString,
+                 "-author", $projectArtistNameString,
                  #"-metadata", "Genre=$mp3GenreString",
                  $mp3);
 	print $OUT "Running: @args" if $debug > 1;
 	dumpCommand("$projectDirectory/ffmpeg.bash",@args);
-	system(@args) == 0 or die "system @args failed: $!";
+    if(system(@args) != 0) {
+        my $whatWentBang = $!;
+        message ("system call failed:",'stop',"@args: $whatWentBang");
+        $globalErrorMessages .= "system @args failed: $whatWentBang\n";
+        $globalErrorCount++;
+    }
 	print $OUT "finished\n" if $debug > 1;
 }
 
@@ -592,7 +602,7 @@ sub checkTracks {
 	
 	# Open today's aup file
 	print $OUT "checking project file: $projectFilePath\n" if $debug>1;
-	die "failed to open Audacity project file: $projectFilePath\n" unless -r $projectFilePath;
+	message("Failed to open Audacity project file: \n",'stop',"$projectFilePath") && exit unless -r $projectFilePath;
 
 	$AUP = XML::Smart->new($projectFilePath);
 	
@@ -601,7 +611,8 @@ sub checkTracks {
 	
 	print $OUT "Looking in $wavDirectory for wav files\n" if $debug>2;
 	my $numlabels = $AUP->{project}{labeltrack}{numlabels};
-	print $OUT "found $numlabels tracks\n" if $debug>1;
+    $numlabels = 0 unless $numlabels;
+	print $OUT "found $numlabels track labels\n" if $debug>1;
 	$errors_found++ unless $numlabels;
 	my @llist = @{$AUP->{project}{labeltrack}{label}};
     if (!(@llist && $#llist == 0 && $llist[0]->{title} eq "")) { # Check for empty list 
@@ -630,11 +641,9 @@ sub checkTracks {
 				$errors_found++;
 			}
 			print $OUT "checking for $wavfile: $tr\n" if $debug>2;
-	#		`lame $wavfile $wavsDirectory/$wavsDirectory-$ti.mp3`; 
-	#		`"c:/program files/audacity/ffmpeg.exe" $wavfile $wavDirectory/$wavFilenamePrefix-$ti.mp3` if(-f $wavfile);
 		}
 	} else {
-		message ("No tracks saved - nothing to check",'caution');
+		message ("No tracks saved - nothing to check",'caution',"Did you forget to create labels?");
 		return 1; # Error found
 	}
 	# Save to a new project file
@@ -642,13 +651,13 @@ sub checkTracks {
         my $msgtext = "$errors_found errors: " if($errors_found);
 	if($errors_found) {
 		if($fixLabels) {
-			message($msgtext."fixed",'info')}
+			message($msgtext."fixed",'info',"specify --nofixlabels option if you don't want this")}
 		else {
-			message($msgtext."NOT fixed",'caution')}
+			message($msgtext."NOT fixed",'caution',"specify --fixlabels option if you want this")}
 	}
 #	print "Errors " . $fixLabels?"fixed\n":"NOT fixed\n" if ($errors_found);
-	message("Finished Checking Tracks with $errors_found errors\n",'info') if $debug>1;
-	print $OUT "OK\n" unless ($errors_found);
+	message("Finished Checking Tracks with $errors_found errors\n",'info',"Processing won't continue until errors are fixed.") if ($debug>1 and $errors_found>0);
+#	print $OUT "OK\n" unless ($errors_found);
     $errors_found;
 } #checkTracks
 
@@ -768,7 +777,12 @@ sub BurnCD {
 		);
         print $OUT "Running: @args" if $debug >2 ;
 		dumpCommand("$projectDirectory/burncd.bash",@args);
-        system(@args) == 0 or die "system @args failed: $!";
+        if(system(@args) != 0) {
+            my $whatWentBang = $!;
+            message ("system call failed:",'stop',"@args: $whatWentBang");
+            $globalErrorMessages .= "system @args failed: $whatWentBang\n";
+            $globalErrorCount++;
+        }
         print "Finished Burning CD\n"  if $verbose;
 }
 
@@ -1000,7 +1014,12 @@ sub createCdInserts {
 		);
 		print "Running: @args" if $debug > 1;
 		dumpCommand("$projectDirectory/cdlabelgen_$copy.bash",@args);
-		system(@args) == 0 or die "system @args failed: $!";
+        if(system(@args) != 0) {
+            my $whatWentBang = $!;
+            message ("system call failed:",'stop',"@args: $whatWentBang");
+            $globalErrorMessages .= "system @args failed: $whatWentBang\n";
+            $globalErrorCount++;
+        }
 	}
 	print "Done creating CD labels\n";
 	print "finished \n" if $debug > 1;
@@ -1012,7 +1031,12 @@ sub printCdInserts {
 	push @args, "lp";
 	push @args, @CdInsertFileNames;
 	dumpCommand("$projectDirectory/printcdinserts.bash",@args);
-	system(@args) == 0 or message("printing failed: $!",'stop');
+    if(system(@args) != 0) {
+        my $whatWentBang = $!;
+        message ("system call failed:",'stop',"@args: $whatWentBang");
+        $globalErrorMessages .= "system @args failed: $whatWentBang\n";
+        $globalErrorCount++;
+    }
 	print "done printing CD Inserts\n" if $verbose;
 }
 
@@ -1031,7 +1055,13 @@ sub createPodcast {
     # Save a copy of our command
 	dumpCommand("$projectDirectory/createpodcast.bash",@args);
     # Run the sox command
-	system(@args) == 0 or die "system @args failed: $!";
+	if(system(@args) != 0) {
+        my $whatWentBang = $!;
+        message ("system call failed:",'stop',"@args: $whatWentBang");
+        $globalErrorMessages .= "system @args failed: $whatWentBang\n";
+        $globalErrorCount++;
+        $podcastid3 = 0; #inhibit applying ID3 tags - probably no file
+    }
 	# Now apply ID3 tags to resulting file
 	$sermonGenre = "speech";
 	if($podcastid3) {
@@ -1039,17 +1069,22 @@ sub createPodcast {
 	#	`mp3info2 -t title -a artist -l album -y year -g genre -c comment -n tracknumber`;
 		@args = ("mp3info2",
 			 "-u", "-2",
-			 "-t", $sermonTitle,
-			 "-a", $preacher,
-			 "-l", $sermonSeries,
-			 "-y", $mp3YearString,
-			 "-g", $sermonGenre,
-			 "-c", $sermonDescription,
+			 "-t", "$sermonTitle",
+			 "-a", "$preacher",
+			 "-l", "$sermonSeries",
+			 "-y", "$mp3YearString",
+			 "-g", "$sermonGenre",
+			 "-c", "$sermonDescription",
 			 "-n", "1",
-			 $podcastFilePath);
+			 "$podcastFilePath");
 		print "Running ", join (":",@args), "\n" if $debug;
 		dumpCommand("$projectDirectory/applyid3tags.bash",@args);
-		system(@args) == 0 or (print "Setting ID3 tags failed ($!) skipping\n" && return);	
+        if(system(@args) != 0) {
+            my $whatWentBang = $!;
+            message ("system call failed:",'stop',"@args: $whatWentBang");
+            $globalErrorMessages .= "system @args failed: $whatWentBang\n";
+            $globalErrorCount++;
+        }
 	} else {
 		print "Not applying ID3 tags\n" if $verbose;
 	}
@@ -1072,9 +1107,46 @@ sub uploadPodcast {
 	
 	print $OUT "Running ", join (":",@args), "\n";
 	dumpCommand("$projectDirectory/upload.bash",@args);
-	system(@args) == 0 or (message("File upload failed \($!\) - skipping\n",'caution') && return);	
+    if(system(@args) != 0) {
+        my $whatWentBang = $!;
+        message ("File upload failed \($whatWentBang\) - skipping\n",'caution',"Re-run with --upload option to try again");
+        $globalErrorMessages .= "File upload failed \($whatWentBang\)";
+        $globalErrorCount++;
+        return;
+    }
+#
+#	system(@args) == 0 or (message("File upload failed \($!\) - skipping\n",'caution',"Re-run with --upload option to try again") && return);
 	
-	message("Done uploading podcast\n",'network');
+	message("Done uploading podcast\n",'network',"You will have to manually create sermon through wp-admin") if($verbose);
+}
+
+# Do the magic to figure out where the project will be and what it is called based on provided name and/or path
+sub processProjectArg {
+    my $given = shift;
+	$given =~ s/\/$//; # Get parameter and remove trailing slashes (/) if any
+	if ($given =~ /\.aup$/i) {
+		# It's an aup file, extract the directory it's in and use that as the $projectDirectory
+		$projectFilePath = $given;
+		($projectName,$projectDirectory,) = fileparse($projectFilePath,".aup");
+		$projectDirectory =~ s!/$!!;
+		print $OUT "projectDirectory: $projectDirectory\n" if($debug>1);
+		$projectFilename = fileparse($projectName);
+		print $OUT "full path to project file given: $projectFilename\n" if($debug);
+	} else { # no .aup extension, must be a directory
+		if($given =~ m!^\.*/!) { # if given starts with / or ./ then leave path as-is otherwise prepend base dir.
+			$projectDirectory = $given;
+        } else {
+			$projectDirectory = "$baseDirectory/$recordingsDirectoryName/$given";
+		}
+		$projectFilename = basename($projectDirectory) . ".aup";
+		print $OUT "got project base name from directory: $projectFilename\n" if ($debug);
+	}
+	# Find a date in the file/path name if available and override $dateString if it is
+	if($projectFilename =~ /((\d{4})-(\d{2})-(\d{2}))/) {
+		print $OUT "Matched date in $projectFilename\n" if($debug>1);
+		$dateString = $1;
+	}
+    $projectName = fileparse($projectFilename, ".aup");
 }
 ##############################
 # main Program Start
@@ -1114,6 +1186,9 @@ pod2usage(-exitstatus => 0, -verbose => 2) if $man;
 # Load any config from ini file
 loadConfig;
 
+# Now confirm user selected options via the gui
+exit unless promptUserForOptions == 1;
+
 # Use projectDate if provided on command line
 $dateString = $projectDate if(defined $projectDate);
 
@@ -1121,45 +1196,22 @@ $dateString = $projectDate if(defined $projectDate);
 # path information is used from this to set base directory for other files for this project
 # Expect full path of directory aup file is in or aup file itself
 if ($#ARGV >= 0) {
-        my $given = shift;
-	$given =~ s/\/$//; # Get parameter and remove trailing slashes (/) if any
-	if ($given =~ /\.aup$/i) {
-		# It's an aup file, extract the directory it's in and use that as the $projectDirectory
-		$projectFilePath = $given;
-		($projectName,$projectDirectory,) = fileparse($projectFilePath,".aup");
-		$projectDirectory =~ s!/$!!;
-		print $OUT "projectDirectory: $projectDirectory\n" if($debug>1);
-		$projectFilename = fileparse($projectName);
-		print $OUT "full path to project file given: $projectFilename\n" if($debug);
-	} else { # no .aup extension, must be a directory
-		if($given =~ m!^\.*/!) { # if given starts with / or ./ then leave path as-is otherwise prepend base dir.
-			$projectDirectory = $given;
-			} else {
-			$projectDirectory = "$baseDirectory/$recordingsDirectoryName/$given";
-		}
-		$projectFilename = basename($projectDirectory) . ".aup";
-		print $OUT "got project base name from directory: $projectFilename\n" if ($debug);
-	}
-	# Find a date in the file/path name if available and override $dateString if it is
-	if($projectFilename =~ /((\d{4})-(\d{2})-(\d{2}))/) {
-		print $OUT "Matched date in $projectFilename\n" if($debug>1);
-		$dateString = $1;
-	}
-    $projectName = fileparse($projectFilename, ".aup");
+    processProjectArg(shift);
 } else { # Nothing given on command line - create project and directory names
     $projectName = "$dateString" . "$audacityProjectSuffix";
     $projectFilename = "$projectName\.aup";
 	$projectDirectory = "$baseDirectory/$recordingsDirectoryName/$projectName";
-	ptiny $OUT ("projectDirectory: $projectDirectory\n") if($debug>1);
+	print $OUT ("projectDirectory: $projectDirectory\n") if($debug>1);
 	($button,$selection) = promptUserRadio("Choose option:","OK","Quit","\"Use $projectFilename\"","\"Browse for another project\"","\"Enter project name\"");
 	exit if($button == 2);
 	if($selection){
-		my $rv = promptUserAup("Select an existing project file","$baseDirectory/$recordingsDirectoryName") if($selection == 1);
+		my $rv = promptUserAup("Browse for an existing project file","$baseDirectory/$recordingsDirectoryName") if($selection == 1);
 		$rv = promptUser("Enter a project name","$projectName") if($selection == 2);
 		chomp($rv);
-		print $OUT "going to exec with $0 @NEW_ARGV $rv\n" if($debug);
-		exec "$0",@NEW_ARGV,"$rv";
-		exit;
+#		print $OUT "going to exec with $0 @NEW_ARGV $rv\n" if($debug);
+#		exec "$0",@NEW_ARGV,"$rv";
+#		exit;
+        processProjectArg($rv);
 	}
 }
 $projectFilePath = "$projectDirectory/$projectFilename";
@@ -1178,13 +1230,10 @@ print "projectDataDirectory: $projectDataDirectory\n" if $debug;
 # Read tags from project file if it exists, otherwise from template, get user confirmation then
 # create a new projectfile if $filename not specified on command line
 
-configureProject; 
+configureProject;
 
 print $OUT "audacity: $audacity\n" if $debug > 1;
 print $OUT "podcast: $podcast\n" if $debug > 1;
-
-# Now confirm user selected options via the gui
-exit unless promptUserForOptions == 1;
 
 # If any steps are explicity requested, set all others still enabled by default (i.e. value == 2) to disabled
 if(($audacity eq 1) ||
@@ -1231,8 +1280,33 @@ while(checkTracks($projectFilePath)) {
    print "Missing wav files or incorrect label lengths.\n";
    my $r = promptUserOKCan ("Re-run Audacity to re-export wav files?","Re-run", "Skip");
    if($r == 1) {runAudacity;}
-   if($r == 2) {message("Quitting\n",'stop'); exit;}
+   if($r == 2) {message("Nothing to process - exiting\n",'stop',"I need audio tracks to do something with..."); exit;}
 }
+
+# Get user's selection for tracks to burn to CD
+if ($cdInserts || $burn){
+    my $button;
+    ($button,@burnSelectedTracks) = selectTracks(($burn?"burning to CD":"") . (($cdInserts and $burn)?" and ":"") . ($cdInserts?"jewelcase inserts.":"."),".*");
+    print("button returned from selectTracks: $button\n") if($debug >1);
+    # Pike out if user wasn't sure.
+    exit if($button ne 1);
+}
+
+# Get user's selection for tracks to include in podcast
+my $sermonRegex = $sermonRegexDefault;
+if ($podcast) {
+    my $button;
+	($button,@podcastSelectedTracks) = selectTracks("sermon podcast.",$sermonRegex);
+    (print $OUT "Quitting from select podcast tracks\n" && exit) if($button ne 1);
+}
+
+# Everything is now known and the remainder runs unattended.
+# Prompt user to turn printer on (if print selected) and insert writable CDs (if burn selected)
+my $messageText;
+$messageText .= "Insert one or more writable CDs in the drive(s)\n" if $burn;
+$messageText .= "Check the printer is turned on\n" if $printCdInserts;
+$messageText .= "When ready, click 'OK' and go get a cup of coffee.\n";
+longMessage ("Ready to go","$messageText");
 
 # Create individual mp3 files from wav files
 makeMp3s if($mp3);
@@ -1240,12 +1314,12 @@ makeMp3s if($mp3);
 # Burn CDs
 # First get selected tracks to burn
 if ($cdInserts || $burn){
-    my $button;
-    ($button,@selectedTracks) = selectTracks(($burn?"burning to CD":"") . (($cdInserts and $burn)?" and ":"") . ($cdInserts?"jewelcase inserts.":"."),".*");
-    print("button returned from selectTracks: $button\n") if($debug >1);
-    # Pike out if user wasn't sure.
-    exit if($button ne 1);
-    # Now we have tracks selected for buring to CD, look for media and try to burn.
+#    my $button;
+#    ($button,@selectedTracks) = selectTracks(($burn?"burning to CD":"") . (($cdInserts and $burn)?" and ":"") . ($cdInserts?"jewelcase inserts.":"."),".*");
+#    print("button returned from selectTracks: $button\n") if($debug >1);
+#    # Pike out if user wasn't sure.
+#    exit if($button ne 1);
+    # Now we have tracks selected for burning to CD, look for media and try to burn.
     if($burn) {
         my @blanks = checkBlankMedia;
         while($#blanks < 0 &&
@@ -1260,23 +1334,23 @@ if ($cdInserts || $burn){
         }
         # Burn tracks to each available writable media
         foreach my $drive (@blanks) {
-            BurnCD($drive, @selectedTracks);
+            BurnCD($drive, @burnSelectedTracks);
         }
     } else {
         print "Not burning CDs\n" if($verbose);
     }
 }
 # Assume CD labels are only wanted when CDs are burned
-createCdInserts(@selectedTracks) if $cdInserts;
+createCdInserts(@burnSelectedTracks) if $cdInserts;
 printCdInserts() if ($printCdInserts and $cdInserts);
 
 # Create podcast file and FTP to web server.
-my $sermonRegex = $sermonRegexDefault;
+#my $sermonRegex = $sermonRegexDefault;
 if ($podcast) {
-    my $button;
-	($button,@selectedTracks) = selectTracks("sermon podcast.",$sermonRegex);
-    (print $OUT "Quitting from select podcast tracks\n" && exit) if($button ne 1);
-	createPodcast(@selectedTracks);
+#    my $button;
+#	($button,@selectedTracks) = selectTracks("sermon podcast.",$sermonRegex);
+#    (print $OUT "Quitting from select podcast tracks\n" && exit) if($button ne 1);
+	createPodcast(@podcastSelectedTracks);
 } else { 
 	print $OUT "Not creating podcast\n" if($verbose);
 }
@@ -1286,13 +1360,13 @@ if($upload) { # same as --ftp option
 	if(-r $podcastFilePath) {
 		uploadPodcast($podcastFilePath);
 	} else {
-		message("Can't upload: $podcastFilePath not found",'stop');
+		message("Can't upload: podcast MP3 file not found",'stop',"$podcastFilePath");
 	}
 } else {
 	print "Not uploading podcast\n" if($verbose);
 }
 
-message("Everything's done\n",'info');
+longMessage("Finished with $globalErrorCount errors\n","$globalErrorMessages");
 exit;
 __END__
 
