@@ -494,6 +494,7 @@ sub configureID3Tag {
     ${$ref_var} = $project->{project}{tags}{tag}('name','eq',$tagName){'value'};
 	if(${$ref_var}) {
 		print $OUT "$tagName tag: ${$ref_var}\n" if $debug;
+        $promptString = $tagName unless $promptString;
 		${$ref_var} = promptUser("$promptString",${$ref_var}) if $updatetags;
 		$project->{project}{tags}{tag}('name','eq',$tagName){'value'} = ${$ref_var};
 	} else {
