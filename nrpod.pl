@@ -93,8 +93,8 @@ my @burnSelectedTracks;
 my @podcastSelectedTracks;
 my $dateString = sprintf("%04d-%02d-%02d",$tm->year+1900,$tm->mon+1,$tm->mday);
 my $pathToSox;
-# The two strings (%s) in $recordingNameDefault are replaced with $eventTime and $dateString in that order
-my $recordingNameDefault = "NRUC %s Service %s";
+# The string (%s) in $recordingNameDefault is replaced with $eventTime (e.g. 9:30am)
+my $recordingNameDefault = "NRUC %s Service";
 my $sequenceNumber;
 my $interactive;
 my $podcastFilePath;
@@ -105,7 +105,7 @@ my $sermonSeries = "";
 my $sermonSeriesDefault = "General";
 my $sermonGenre = "Speech";
 my $sermonDescription = "";
-my $sermonRegexDefault = "welcome|script|message|benediction";
+my $sermonRegexDefault = "welcome|script|message|benediction|prayer";
 
 # Error tracking
 my $globalErrorCount = 0;
@@ -450,7 +450,7 @@ sub configureProject {
     # Silently use default (where no prompt is provided)
     #
     $tagsWereModified |= configureID3Tag($PROJECT,\$eventTime,'TIME',$eventTimeDefault,"Enter time of event");
-    $tagsWereModified |= configureID3Tag($PROJECT,\$recordingName,'ALBUM',sprintf($recordingNameDefault,$eventTime,$dateString),"Album (recording) name?");
+    $tagsWereModified |= configureID3Tag($PROJECT,\$recordingName,'ALBUM',sprintf($recordingNameDefault,$eventTime),"Album (recording) name?");
     # Make a filename-safe version of the string for use, well, in the filename
 	($fileSafeRecordingName = lc $recordingName) =~ tr/: /-_/;
     $tagsWereModified |= configureID3Tag($PROJECT,\$projectArtistNameString,'ARTIST',$projectArtistNameStringDefault,);
