@@ -64,6 +64,8 @@ my $audacityProjectDataDirectorySuffix = "_data";
 my $preacherDefault = "Ian Hickingbotham";
 my $eventTimeDefault = "9:30am";
 my $eventTime = "";
+my $scriptureReadingsDefault = "Genesis 1:1-5;Matthew 1:1-17";
+my $scriptureReadings;
 my $wavFilenamePrefix;
 my $pathToFfMpeg;
 my $pathToLame;
@@ -466,6 +468,7 @@ sub configureProject {
     $tagsWereModified |= configureID3Tag($PROJECT,\$sermonTitle,'SERMONTITLE',"", "Message title?");
     $tagsWereModified |= configureID3Tag($PROJECT,\$sermonSeries,'SERIES',$sermonSeriesDefault,"Series?");
     $tagsWereModified |= configureID3Tag($PROJECT,\$sermonDescription,'COMMENTS',"", "Sermon description?");
+    $tagsWereModified |= configureID3Tag($PROJECT,\$scriptureReadings,'NRSCRIPTURE',$scriptureReadingsDefault, "Scripture readings?");
 
     # Now make a path for the location of the mp3 sermon podcast file
 	$podcastFilePath = "$mp3Directory/$dateString\_$fileSafeRecordingName\_$safePreacher\.mp3";
