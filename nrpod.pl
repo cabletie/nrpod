@@ -880,7 +880,7 @@ sub selectTracks {
 
     # Choose a path based on if gui is avaiable or not
     # For GUI, present list of checkboxes and return actual button pressed plus selected array
-    # for terminal, return button == 1 always plus selected array.
+    # for terminal ($gui == 0), return button == 1 always plus selected array.
     my $button;
 	if($gui)
 	{
@@ -901,7 +901,9 @@ sub selectTracks {
 				$track_lengths{$file} = $read -> length_seconds();
 				# Add this track's length to total
 				$total_length += $track_lengths{$file};
+                # Add duration to string
 				$checkBoxStrings{$file} .= sprintf("\t\t%s", sec2Hms($track_lengths{$file}));
+                # Close quoted string
 				$checkBoxStrings{$file} .= "\"";
 				push(@checkBoxStrings,$checkBoxStrings{$file});
 			}
@@ -917,11 +919,12 @@ sub selectTracks {
 				sprintf ("Total selected: %s, Total all tracks: %s", sec2Hms($selected_total), sec2Hms($total_length)),
 				\@selectedArray,
 				\@checkBoxStrings);
-            print "Got button = $button back from promptUserForTracks\n" if ($debug > 1);
+            print "Got button = $button back from promptUserForTracks\n" if ($debug > 2);
 			print "After:",join(" ",@selectedArray),"\n" if $debug>2;
 			return $button,() if ($button == 3); # Cancel
 			my $selection;
 			$selected_total = 0;
+            @result = ();
 			foreach $selection (@selectedArray) {
 				push @result, {'filename' => $filelist[$selection-1], 'length' => $track_lengths{$filelist[$selection-1]}};
 				$selected_total += $track_lengths{$filelist[$selection-1]};
