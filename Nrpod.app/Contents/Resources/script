@@ -64,6 +64,8 @@ my $audacityProjectDataDirectorySuffix = "_data";
 my $preacherDefault = "Ian Hickingbotham";
 my $eventTimeDefault = "9:30am";
 my $eventTime = "";
+my $scriptureReadingsDefault = "Genesis 1:1-5;Matthew 1:1-17";
+my $scriptureReadings;
 my $wavFilenamePrefix;
 my $pathToFfMpeg;
 my $pathToLame;
@@ -93,8 +95,8 @@ my @burnSelectedTracks;
 my @podcastSelectedTracks;
 my $dateString = sprintf("%04d-%02d-%02d",$tm->year+1900,$tm->mon+1,$tm->mday);
 my $pathToSox;
-# The two strings (%s) in $recordingNameDefault are replaced with $eventTime and $dateString in that order
-my $recordingNameDefault = "NRUC %s Service %s";
+# The string (%s) in $recordingNameDefault is replaced with $eventTime (e.g. 9:30am)
+my $recordingNameDefault = "NRUC %s Service";
 my $sequenceNumber;
 my $interactive;
 my $podcastFilePath;
@@ -105,7 +107,7 @@ my $sermonSeries = "";
 my $sermonSeriesDefault = "General";
 my $sermonGenre = "Speech";
 my $sermonDescription = "";
-my $sermonRegexDefault = "welcome|script|message|benediction";
+my $sermonRegexDefault = "welcome|script|message|benediction|prayer";
 
 # Error tracking
 my $globalErrorCount = 0;
@@ -450,7 +452,7 @@ sub configureProject {
     # Silently use default (where no prompt is provided)
     #
     $tagsWereModified |= configureID3Tag($PROJECT,\$eventTime,'TIME',$eventTimeDefault,"Enter time of event");
-    $tagsWereModified |= configureID3Tag($PROJECT,\$recordingName,'ALBUM',sprintf($recordingNameDefault,$eventTime,$dateString),"Album (recording) name?");
+    $tagsWereModified |= configureID3Tag($PROJECT,\$recordingName,'ALBUM',sprintf($recordingNameDefault,$eventTime),"Album (recording) name?");
     # Make a filename-safe version of the string for use, well, in the filename
 	($fileSafeRecordingName = lc $recordingName) =~ tr/: /-_/;
     $tagsWereModified |= configureID3Tag($PROJECT,\$projectArtistNameString,'ARTIST',$projectArtistNameStringDefault,);
@@ -466,6 +468,7 @@ sub configureProject {
     $tagsWereModified |= configureID3Tag($PROJECT,\$sermonTitle,'SERMONTITLE',"", "Message title?");
     $tagsWereModified |= configureID3Tag($PROJECT,\$sermonSeries,'SERIES',$sermonSeriesDefault,"Series?");
     $tagsWereModified |= configureID3Tag($PROJECT,\$sermonDescription,'COMMENTS',"", "Sermon description?");
+    $tagsWereModified |= configureID3Tag($PROJECT,\$scriptureReadings,'NRSCRIPTURE',$scriptureReadingsDefault, "Scripture readings?");
 
     # Now make a path for the location of the mp3 sermon podcast file
 	$podcastFilePath = "$mp3Directory/$dateString\_$fileSafeRecordingName\_$safePreacher\.mp3";
@@ -880,7 +883,7 @@ sub selectTracks {
 
     # Choose a path based on if gui is avaiable or not
     # For GUI, present list of checkboxes and return actual button pressed plus selected array
-    # for terminal, return button == 1 always plus selected array.
+    # for terminal ($gui == 0), return button == 1 always plus selected array.
     my $button;
 	if($gui)
 	{
@@ -901,7 +904,9 @@ sub selectTracks {
 				$track_lengths{$file} = $read -> length_seconds();
 				# Add this track's length to total
 				$total_length += $track_lengths{$file};
+                # Add duration to string
 				$checkBoxStrings{$file} .= sprintf("\t\t%s", sec2Hms($track_lengths{$file}));
+                # Close quoted string
 				$checkBoxStrings{$file} .= "\"";
 				push(@checkBoxStrings,$checkBoxStrings{$file});
 			}
@@ -917,11 +922,12 @@ sub selectTracks {
 				sprintf ("Total selected: %s, Total all tracks: %s", sec2Hms($selected_total), sec2Hms($total_length)),
 				\@selectedArray,
 				\@checkBoxStrings);
-            print "Got button = $button back from promptUserForTracks\n" if ($debug > 1);
+            print "Got button = $button back from promptUserForTracks\n" if ($debug > 2);
 			print "After:",join(" ",@selectedArray),"\n" if $debug>2;
 			return $button,() if ($button == 3); # Cancel
 			my $selection;
 			$selected_total = 0;
+            @result = ();
 			foreach $selection (@selectedArray) {
 				push @result, {'filename' => $filelist[$selection-1], 'length' => $track_lengths{$filelist[$selection-1]}};
 				$selected_total += $track_lengths{$filelist[$selection-1]};
