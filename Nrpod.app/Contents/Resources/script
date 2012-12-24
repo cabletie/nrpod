@@ -383,6 +383,26 @@ sub loadConfig {
     print $OUT "basedirectory: $baseDirectory\n" if $debug>1;
 } # loadConfig
 
+sub dependenciesArePresent {
+    # Checks for critical helper tools
+    # Prints array of missing tool paths
+    my @missingTools;
+    @dependencyList = ($pathToCD,
+        $pathToSox,
+        $pathToFfMpeg,
+    #        $pathToAudacity,
+        $pathToLame,
+        $pathToCdLabelGen,
+    );
+    foreach (@dependencyList) {
+        chomp(my $pathToTool = `which $_`);
+        print $pathToTool,"\n" if $debug;
+        push @missingTools,$pathToTool unless -e $pathToTool;
+    }
+    print $OUT "Missing some kit:\n",join("\n",@missingTools),"\n" if @missingTools;
+    return $#missingTools < 0;
+}
+
 sub setupPaths { # Usage: setupPaths projectDirectory
 	# ProjectDirectory contains the .aup file, wav directory, mp3 directory and audacity _data directory
 	# Now build the other useful path strings and check that the required ones exist
@@ -1192,6 +1212,9 @@ pod2usage(-exitstatus => 0, -verbose => 2) if $man;
 
 # Load any config from ini file
 loadConfig;
+
+# Check we have the full kit
+exit unless dependenciesArePresent;
 
 # Now confirm user selected options via the gui
 exit unless promptUserForOptions == 1;
