@@ -460,7 +460,7 @@ sub configureProject {
 				exit;
 			}
 		$updatetags = 1; # New project file - tags must be updated
-        $audacity = 2; # Nothing in the default audacity project, therefore no tracks therefore must run audacity
+        $audacity = 1; # Nothing in the default audacity project, therefore no tracks therefore must run audacity
 		print $OUT "Creating new project file " . basename($projectFilePath) . " from " . basename($projectTemplateFilename) . "\n" if($verbose);
 		$PROJECT = XML::Smart->new($projectTemplateFilename);
 	}
@@ -1214,7 +1214,7 @@ pod2usage(-exitstatus => 0, -verbose => 2) if $man;
 loadConfig;
 
 # Check we have the full kit
-exit unless dependenciesArePresent;
+#exit unless dependenciesArePresent;
 
 # Now confirm user selected options via the gui
 exit unless promptUserForOptions == 1;
