@@ -460,7 +460,7 @@ sub configureProject {
 				exit;
 			}
 		$updatetags = 1; # New project file - tags must be updated
-        $audacity = 1; # Nothing in the default audacity project, therefore no tracks therefore must run audacity
+        $audacity = 2; # Nothing in the default audacity project, therefore no tracks therefore must run audacity
 		print $OUT "Creating new project file " . basename($projectFilePath) . " from " . basename($projectTemplateFilename) . "\n" if($verbose);
 		$PROJECT = XML::Smart->new($projectTemplateFilename);
 	}
@@ -547,7 +547,7 @@ sub runAudacity {
 	# Launch Audacity
 	# Expect user to export to wav files as normal
 	##############################################
-	message("Starting audacity",'info',"Export tracks using 'export multiple' to wav directory: $wavDirectory\nthen quit Audacity to continue.\n");
+	message("Starting audacity",'info',"When you click OK, Audacity will start. Export tracks using 'export multiple' to wav directory: $wavDirectory then quit Audacity to continue.\n");
 	print $OUT "Waiting for Audacity to exit ...";
         -f $projectFilePath || die "Can't find $projectFilePath\n";
         # convert to backslash paths for windows
@@ -1266,10 +1266,10 @@ print $OUT "audacity: $audacity\n" if $debug > 1;
 print $OUT "podcast: $podcast\n" if $debug > 1;
 
 # If any steps are explicity requested, set all others still enabled by default (i.e. value == 2) to disabled
-if(($audacity eq 1) ||
+if(($audacity == 1) ||
    ($mp3 == 1) ||
    ($burn == 1) ||
-   ($podcast eq 1) ||
+   ($podcast == 1) ||
    ($cdInserts == 1) ||
    ($fixLabels == 1) ||
    ($upload == 1) ||
