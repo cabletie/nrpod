@@ -460,7 +460,8 @@ sub configureProject {
 				exit;
 			}
 		$updatetags = 1; # New project file - tags must be updated
-        $audacity = 1; # Nothing in the default audacity project, therefore no tracks therefore must run audacity
+        # Not using $audacity = 1 here because it will get treated as an execute only option and othe rdefault swill be turned off
+        $audacity = 3; # Nothing in the default audacity project, therefore no tracks therefore must run audacity
 		print $OUT "Creating new project file " . basename($projectFilePath) . " from " . basename($projectTemplateFilename) . "\n" if($verbose);
 		$PROJECT = XML::Smart->new($projectTemplateFilename);
 	}
