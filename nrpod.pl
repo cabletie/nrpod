@@ -5,12 +5,12 @@
 # Done 2. add GUI to allow selection of sermon tracks
 # Done 3. create selected tracks into one MP3 for sermon upload
 # Done 4. FTP sermon MP3 to server
-# 5. Configure WordPress server for new sermon
+# Todo 5: Configure WordPress server for new sermon
 # Done 6. Change using POSIX strftime to using localtime (use Time::localtime;)
 #	$tm = localtime;
 #	printf("The current date is %04d-%02d-%02d\n", $tm->year+1900, 
 #	    ($tm->mon)+1, $tm->mday);
-# 7. Move config stuff to config file
+# Todo 7: Move config stuff to config file
 # Done 8. Ask all questions up front
 # Done 9. Improve defaulting when new project file is created from template (either have defaults in program or fix defauts in template file)
 # Done 10. Don't die at any failed command - change to pass through if not critical.
@@ -24,6 +24,9 @@
 # Done 18. re-factor configureProject()
 # 19. Add support for Scripture readings
 # Done 20. Fix dialog boxes that say "Alert" - maybe add icons? (message now has two parts - text and informative-text
+# Todo 21: check if suggested project exists or not then prompt "Create" or "Use" occordingly - then remove the need to prompt to create or not.
+# Todo 22: Force use of date for project prefix
+
 
 
 # use strict;
@@ -230,7 +233,6 @@ sub promptUserForTracks {
 	my ($title,$label,$ref_selected,$ref_tracks) = @_;
 	my ($rv, $cdrv, @rv, $boxes, $button, @boxes);
     my @checkedBoxes; # declare array that big to hold a number for each track
-    # my @checkedBoxes = (0) x $#{$ref_tracks}; # declare array that big to hold a number for each track
     # Convert selection array to bitmap array
     # Loop through list and set each specified element to 1
     foreach my $checked (@{$ref_selected})
@@ -272,11 +274,6 @@ sub promptUserForOptions {
         {name => "Debugging",ref => \$debug},
         {name => "Verbose",ref => \$verbose},
 	);
-#    print "\$\#optionList: $#optionList\n";
-#    foreach $opt (@optionList) {
-#        print("$opt->{name}:${$opt->{ref}}\n");
-#    }
-#    print "\n";
 	my $index;
     my @checkedOptions;
     my @mixedOptions;
@@ -410,11 +407,8 @@ sub setupPaths { # Usage: setupPaths projectDirectory
 	# Expected path for multimedia PC at NRUC shown in comments
 	my $projectDirectory = shift;
 	# D:/users/Helix Multimedia/service_recordings/2009-07-19_service/
-	#        checkDirectory($projectDirectory = "$baseDirectory/$recordingsDirectoryName/$projectName");
 	checkDirectory($projectDirectory);
 	print $OUT "projectDirectory: $projectDirectory\n" if $debug>1;
-	#        checkDirectory($projectDataDirectory = "$projectDirectory/$projectName"."_Data");
-	#        print "projectDataDirectory: $projectDataDirectory\n" if $debug>1;
 	# D:/users/Helix Multimedia/service_recordings/2009-07-19_service/wav
 	checkDirectory($wavDirectory = "$projectDirectory/$wavOutputDirectoryName");
 	print $OUT "wavDirectory: $wavDirectory\n" if $debug>1;
@@ -446,6 +440,7 @@ sub configureProject {
 	my $fileSafeRecordingName;
 	my $tagsWereModified;
 	
+# Todo 7: Move config stuff to config file
 	# Loads the config. file into a hash: Eventually, all config will be in here
 	#	Config::Simple->import_from('nrpod.cfg', \%Config);
 
@@ -1233,15 +1228,14 @@ if ($#ARGV >= 0) {
     $projectFilename = "$projectName\.aup";
 	$projectDirectory = "$baseDirectory/$recordingsDirectoryName/$projectName";
 	print $OUT ("projectDirectory: $projectDirectory\n") if($debug>1);
+# Todo 21: check if suggested project exists or not then prompt "Create" or "Use" occordingly - then remove the need to prompt to create or not.
 	($button,$selection) = promptUserRadio("Choose option:","OK","Quit","\"Use $projectFilename\"","\"Browse for another project\"","\"Enter project name\"");
 	exit if($button == 2);
 	if($selection){
 		my $rv = promptUserAup("Browse for an existing project file","$baseDirectory/$recordingsDirectoryName") if($selection == 1);
+# Todo 22: Force use of date for project prefix
 		$rv = promptUser("Enter a project name","$projectName") if($selection == 2);
 		chomp($rv);
-#		print $OUT "going to exec with $0 @NEW_ARGV $rv\n" if($debug);
-#		exec "$0",@NEW_ARGV,"$rv";
-#		exit;
         processProjectArg($rv);
 	}
 }
@@ -1345,11 +1339,6 @@ makeMp3s if($mp3);
 # Burn CDs
 # First get selected tracks to burn
 if ($cdInserts || $burn){
-#    my $button;
-#    ($button,@selectedTracks) = selectTracks(($burn?"burning to CD":"") . (($cdInserts and $burn)?" and ":"") . ($cdInserts?"jewelcase inserts.":"."),".*");
-#    print("button returned from selectTracks: $button\n") if($debug >1);
-#    # Pike out if user wasn't sure.
-#    exit if($button ne 1);
     # Now we have tracks selected for burning to CD, look for media and try to burn.
     if($burn) {
         my @blanks = checkBlankMedia;
@@ -1378,9 +1367,6 @@ printCdInserts() if ($printCdInserts and $cdInserts);
 # Create podcast file and FTP to web server.
 #my $sermonRegex = $sermonRegexDefault;
 if ($podcast) {
-#    my $button;
-#	($button,@selectedTracks) = selectTracks("sermon podcast.",$sermonRegex);
-#    (print $OUT "Quitting from select podcast tracks\n" && exit) if($button ne 1);
 	createPodcast(@podcastSelectedTracks);
 } else { 
 	print $OUT "Not creating podcast\n" if($verbose);
