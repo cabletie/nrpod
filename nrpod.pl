@@ -1119,7 +1119,7 @@ sub uploadPodcast {
 	my $ftpHost = "nruc.org.au";
 	my $ftpPath = "/httpdocs/podcast/";
 	my $ftpLogin = "nruc";
-	my $ftpPassword = "church123";
+	my $ftpPassword = "NhEbHp7cFw";
 	
 	my $srcFileName = basename($srcFilePath);
 	
