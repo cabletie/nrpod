@@ -42,6 +42,7 @@ use IO::File;
 #use LWP;
 #use Net::FTP;
 use Term::ReadLine;
+use Parallel::ForkManager;
 
 my $debug = 0;
 
@@ -1278,6 +1279,8 @@ if(($audacity eq 1) ||
 #######################
 # Begin the real work #
 #######################
+# Create a backgrounding object
+my $manager = new Parallel::ForkManager( 5 );
 
 # Run Audacity to capture recording
 runAudacity if $audacity;
@@ -1316,9 +1319,16 @@ $messageText .= "When ready, click 'OK' and go get a cup of coffee.\n";
 longMessage ("Ready to go","$messageText");
 
 # Create individual mp3 files from wav files
-makeMp3s if($mp3);
+unless ($manager->start) {
+	makeMp3s if($mp3);
+	$manager->finish;
+}
 
 # Burn CDs
+# Assume CD labels are only wanted when CDs are burned
+createCdInserts(@burnSelectedTracks) if $cdInserts;
+printCdInserts() if ($printCdInserts and $cdInserts);
+
 # First get selected tracks to burn
 if ($cdInserts || $burn){
 #    my $button;
@@ -1341,15 +1351,14 @@ if ($cdInserts || $burn){
         }
         # Burn tracks to each available writable media
         foreach my $drive (@blanks) {
+			$manager->start and next;
             BurnCD($drive, @burnSelectedTracks);
+			$manager->finish;
         }
     } else {
         print "Not burning CDs\n" if($verbose);
     }
 }
-# Assume CD labels are only wanted when CDs are burned
-createCdInserts(@burnSelectedTracks) if $cdInserts;
-printCdInserts() if ($printCdInserts and $cdInserts);
 
 # Create podcast file and FTP to web server.
 #my $sermonRegex = $sermonRegexDefault;
