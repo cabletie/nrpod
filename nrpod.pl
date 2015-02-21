@@ -1325,9 +1325,12 @@ unless ($manager->start) {
 }
 
 # Burn CDs
-# Assume CD labels are only wanted when CDs are burned
-createCdInserts(@burnSelectedTracks) if $cdInserts;
-printCdInserts() if ($printCdInserts and $cdInserts);
+unless ($manager->start) {
+	# Assume CD labels are only wanted when CDs are burned
+	createCdInserts(@burnSelectedTracks) if $cdInserts;
+	printCdInserts() if ($printCdInserts and $cdInserts);
+	$manager->finish;
+}
 
 # First get selected tracks to burn
 if ($cdInserts || $burn){
@@ -1337,13 +1340,13 @@ if ($cdInserts || $burn){
 #    # Pike out if user wasn't sure.
 #    exit if($button ne 1);
     # Now we have tracks selected for burning to CD, look for media and try to burn.
-    if($burn) {
-        my @blanks = checkBlankMedia;
-        while($#blanks < 0 &&
-            # No burnable disks found ask what to do
-           promptUserOKCan ("No blank, writable CDs found\nTry again or Skip burning?","Try Again","Skip") == 1) {
-            @blanks = checkBlankMedia;
-        }
+    my @blanks = checkBlankMedia;
+    if($burn && $#blanks >= 0) {
+        #while($#blanks < 0 &&
+        #    # No burnable disks found ask what to do
+        #   promptUserOKCan ("No blank, writable CDs found\nTry again or Skip burning?","Try Again","Skip") == 1) {
+        #    @blanks = checkBlankMedia;
+        #}
         if ($debug) {
             my $plural = $#blanks > 0?'s ':' ';
             print "Available blank, writable CD".$plural."in drive".$plural;
@@ -1361,26 +1364,32 @@ if ($cdInserts || $burn){
 }
 
 # Create podcast file and FTP to web server.
-#my $sermonRegex = $sermonRegexDefault;
-if ($podcast) {
-#    my $button;
-#	($button,@selectedTracks) = selectTracks("sermon podcast.",$sermonRegex);
-#    (print $OUT "Quitting from select podcast tracks\n" && exit) if($button ne 1);
-	createPodcast(@podcastSelectedTracks);
-} else { 
-	print $OUT "Not creating podcast\n" if($verbose);
+unless ($manager->start) {
+	#my $sermonRegex = $sermonRegexDefault;
+	if ($podcast) {
+	#    my $button;
+	#	($button,@selectedTracks) = selectTracks("sermon podcast.",$sermonRegex);
+	#    (print $OUT "Quitting from select podcast tracks\n" && exit) if($button ne 1);
+		createPodcast(@podcastSelectedTracks);
+	} else { 
+		print $OUT "Not creating podcast\n" if($verbose);
+	}
+
+	# Upload podcast unless noupload or podcastFilePath doesn't exist
+	if($upload) { # same as --ftp option
+		if(-r $podcastFilePath) {
+			uploadPodcast($podcastFilePath);
+		} else {
+			message("Can't upload: podcast MP3 file not found",'stop',"$podcastFilePath");
+		}
+	} else {
+		print "Not uploading podcast\n" if($verbose);
+	}
+	$manager->finish;
 }
 
-# Upload podcast unless noupload or podcastFilePath doesn't exist
-if($upload) { # same as --ftp option
-	if(-r $podcastFilePath) {
-		uploadPodcast($podcastFilePath);
-	} else {
-		message("Can't upload: podcast MP3 file not found",'stop',"$podcastFilePath");
-	}
-} else {
-	print "Not uploading podcast\n" if($verbose);
-}
+print "Waiting for background processes: ",$manager->running_procs,"\n";
+$manager->wait_all_children;
 
 longMessage("Finished with $globalErrorCount errors\n","$globalErrorMessages");
 exit;
