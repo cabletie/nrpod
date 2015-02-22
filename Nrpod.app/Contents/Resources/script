@@ -383,6 +383,26 @@ sub loadConfig {
     print $OUT "basedirectory: $baseDirectory\n" if $debug>1;
 } # loadConfig
 
+sub dependenciesArePresent {
+    # Checks for critical helper tools
+    # Prints array of missing tool paths
+    my @missingTools;
+    @dependencyList = ($pathToCD,
+        $pathToSox,
+        $pathToFfMpeg,
+    #        $pathToAudacity,
+        $pathToLame,
+        $pathToCdLabelGen,
+    );
+    foreach (@dependencyList) {
+        chomp(my $pathToTool = `which $_`);
+        print $pathToTool,"\n" if $debug;
+        push @missingTools,$pathToTool unless -e $pathToTool;
+    }
+    print $OUT "Missing some kit:\n",join("\n",@missingTools),"\n" if @missingTools;
+    return $#missingTools < 0;
+}
+
 sub setupPaths { # Usage: setupPaths projectDirectory
 	# ProjectDirectory contains the .aup file, wav directory, mp3 directory and audacity _data directory
 	# Now build the other useful path strings and check that the required ones exist
@@ -440,7 +460,7 @@ sub configureProject {
 				exit;
 			}
 		$updatetags = 1; # New project file - tags must be updated
-        $audacity = 1; # Nothing in the default audacity project, therefore no tracks therefore must run audacity
+        $audacity = 2; # Nothing in the default audacity project, therefore no tracks therefore must run audacity
 		print $OUT "Creating new project file " . basename($projectFilePath) . " from " . basename($projectTemplateFilename) . "\n" if($verbose);
 		$PROJECT = XML::Smart->new($projectTemplateFilename);
 	}
@@ -527,7 +547,7 @@ sub runAudacity {
 	# Launch Audacity
 	# Expect user to export to wav files as normal
 	##############################################
-	message("Starting audacity",'info',"Export tracks using 'export multiple' to wav directory: $wavDirectory\nthen quit Audacity to continue.\n");
+	message("Starting audacity",'info',"When you click OK, Audacity will start. Export tracks using 'export multiple' to wav directory: $wavDirectory then quit Audacity to continue.\n");
 	print $OUT "Waiting for Audacity to exit ...";
         -f $projectFilePath || die "Can't find $projectFilePath\n";
         # convert to backslash paths for windows
@@ -1193,6 +1213,9 @@ pod2usage(-exitstatus => 0, -verbose => 2) if $man;
 # Load any config from ini file
 loadConfig;
 
+# Check we have the full kit
+exit unless dependenciesArePresent;
+
 # Now confirm user selected options via the gui
 exit unless promptUserForOptions == 1;
 
@@ -1243,10 +1266,10 @@ print $OUT "audacity: $audacity\n" if $debug > 1;
 print $OUT "podcast: $podcast\n" if $debug > 1;
 
 # If any steps are explicity requested, set all others still enabled by default (i.e. value == 2) to disabled
-if(($audacity eq 1) ||
+if(($audacity == 1) ||
    ($mp3 == 1) ||
    ($burn == 1) ||
-   ($podcast eq 1) ||
+   ($podcast == 1) ||
    ($cdInserts == 1) ||
    ($fixLabels == 1) ||
    ($upload == 1) ||

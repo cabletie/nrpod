@@ -5,12 +5,12 @@
 # Done 2. add GUI to allow selection of sermon tracks
 # Done 3. create selected tracks into one MP3 for sermon upload
 # Done 4. FTP sermon MP3 to server
-# 5. Configure WordPress server for new sermon
+# Todo 5: Configure WordPress server for new sermon
 # Done 6. Change using POSIX strftime to using localtime (use Time::localtime;)
 #	$tm = localtime;
 #	printf("The current date is %04d-%02d-%02d\n", $tm->year+1900, 
 #	    ($tm->mon)+1, $tm->mday);
-# 7. Move config stuff to config file
+# Todo 7: Move config stuff to config file
 # Done 8. Ask all questions up front
 # Done 9. Improve defaulting when new project file is created from template (either have defaults in program or fix defauts in template file)
 # Done 10. Don't die at any failed command - change to pass through if not critical.
@@ -24,6 +24,9 @@
 # Done 18. re-factor configureProject()
 # 19. Add support for Scripture readings
 # Done 20. Fix dialog boxes that say "Alert" - maybe add icons? (message now has two parts - text and informative-text
+# Todo 21: check if suggested project exists or not then prompt "Create" or "Use" occordingly - then remove the need to prompt to create or not.
+# Todo 22: Force use of date for project prefix
+
 
 
 # use strict;
@@ -231,7 +234,6 @@ sub promptUserForTracks {
 	my ($title,$label,$ref_selected,$ref_tracks) = @_;
 	my ($rv, $cdrv, @rv, $boxes, $button, @boxes);
     my @checkedBoxes; # declare array that big to hold a number for each track
-    # my @checkedBoxes = (0) x $#{$ref_tracks}; # declare array that big to hold a number for each track
     # Convert selection array to bitmap array
     # Loop through list and set each specified element to 1
     foreach my $checked (@{$ref_selected})
@@ -273,11 +275,6 @@ sub promptUserForOptions {
         {name => "Debugging",ref => \$debug},
         {name => "Verbose",ref => \$verbose},
 	);
-#    print "\$\#optionList: $#optionList\n";
-#    foreach $opt (@optionList) {
-#        print("$opt->{name}:${$opt->{ref}}\n");
-#    }
-#    print "\n";
 	my $index;
     my @checkedOptions;
     my @mixedOptions;
@@ -384,6 +381,26 @@ sub loadConfig {
     print $OUT "basedirectory: $baseDirectory\n" if $debug>1;
 } # loadConfig
 
+sub dependenciesArePresent {
+    # Checks for critical helper tools
+    # Prints array of missing tool paths
+    my @missingTools;
+    @dependencyList = ($pathToCD,
+        $pathToSox,
+        $pathToFfMpeg,
+    #        $pathToAudacity,
+        $pathToLame,
+        $pathToCdLabelGen,
+    );
+    foreach (@dependencyList) {
+        chomp(my $pathToTool = `which $_`);
+        print $pathToTool,"\n" if $debug;
+        push @missingTools,$pathToTool unless -e $pathToTool;
+    }
+    print $OUT "Missing some kit:\n",join("\n",@missingTools),"\n" if @missingTools;
+    return $#missingTools < 0;
+}
+
 sub setupPaths { # Usage: setupPaths projectDirectory
 	# ProjectDirectory contains the .aup file, wav directory, mp3 directory and audacity _data directory
 	# Now build the other useful path strings and check that the required ones exist
@@ -391,11 +408,8 @@ sub setupPaths { # Usage: setupPaths projectDirectory
 	# Expected path for multimedia PC at NRUC shown in comments
 	my $projectDirectory = shift;
 	# D:/users/Helix Multimedia/service_recordings/2009-07-19_service/
-	#        checkDirectory($projectDirectory = "$baseDirectory/$recordingsDirectoryName/$projectName");
 	checkDirectory($projectDirectory);
 	print $OUT "projectDirectory: $projectDirectory\n" if $debug>1;
-	#        checkDirectory($projectDataDirectory = "$projectDirectory/$projectName"."_Data");
-	#        print "projectDataDirectory: $projectDataDirectory\n" if $debug>1;
 	# D:/users/Helix Multimedia/service_recordings/2009-07-19_service/wav
 	checkDirectory($wavDirectory = "$projectDirectory/$wavOutputDirectoryName");
 	print $OUT "wavDirectory: $wavDirectory\n" if $debug>1;
@@ -427,6 +441,7 @@ sub configureProject {
 	my $fileSafeRecordingName;
 	my $tagsWereModified;
 	
+# Todo 7: Move config stuff to config file
 	# Loads the config. file into a hash: Eventually, all config will be in here
 	#	Config::Simple->import_from('nrpod.cfg', \%Config);
 
@@ -441,7 +456,8 @@ sub configureProject {
 				exit;
 			}
 		$updatetags = 1; # New project file - tags must be updated
-        $audacity = 1; # Nothing in the default audacity project, therefore no tracks therefore must run audacity
+        # Not using $audacity = 1 here because it will get treated as an execute only option and othe rdefault swill be turned off
+        $audacity = 3; # Nothing in the default audacity project, therefore no tracks therefore must run audacity
 		print $OUT "Creating new project file " . basename($projectFilePath) . " from " . basename($projectTemplateFilename) . "\n" if($verbose);
 		$PROJECT = XML::Smart->new($projectTemplateFilename);
 	}
@@ -528,7 +544,7 @@ sub runAudacity {
 	# Launch Audacity
 	# Expect user to export to wav files as normal
 	##############################################
-	message("Starting audacity",'info',"Export tracks using 'export multiple' to wav directory: $wavDirectory\nthen quit Audacity to continue.\n");
+	message("Starting audacity",'info',"When you click OK, Audacity will start. Export tracks using 'export multiple' to wav directory: $wavDirectory then quit Audacity to continue.\n");
 	print $OUT "Waiting for Audacity to exit ...";
         -f $projectFilePath || die "Can't find $projectFilePath\n";
         # convert to backslash paths for windows
@@ -1103,9 +1119,9 @@ sub createPodcast {
 sub uploadPodcast {
 	my $srcFilePath = shift;
 	my $ftpHost = "nruc.org.au";
-	my $ftpPath = "/httpdocs/podcast/";
+	my $ftpPath = "/httpdocs/wp-content/uploads/sermon-manager-import/";
 	my $ftpLogin = "nruc";
-	my $ftpPassword = "church123";
+	my $ftpPassword = "steveoc123";
 	
 	my $srcFileName = basename($srcFilePath);
 	
@@ -1195,6 +1211,9 @@ pod2usage(-exitstatus => 0, -verbose => 2) if $man;
 # Load any config from ini file
 loadConfig;
 
+# Check we have the full kit
+#exit unless dependenciesArePresent;
+
 # Now confirm user selected options via the gui
 exit unless promptUserForOptions == 1;
 
@@ -1211,15 +1230,14 @@ if ($#ARGV >= 0) {
     $projectFilename = "$projectName\.aup";
 	$projectDirectory = "$baseDirectory/$recordingsDirectoryName/$projectName";
 	print $OUT ("projectDirectory: $projectDirectory\n") if($debug>1);
+# Todo 21: check if suggested project exists or not then prompt "Create" or "Use" occordingly - then remove the need to prompt to create or not.
 	($button,$selection) = promptUserRadio("Choose option:","OK","Quit","\"Use $projectFilename\"","\"Browse for another project\"","\"Enter project name\"");
 	exit if($button == 2);
 	if($selection){
 		my $rv = promptUserAup("Browse for an existing project file","$baseDirectory/$recordingsDirectoryName") if($selection == 1);
+# Todo 22: Force use of date for project prefix
 		$rv = promptUser("Enter a project name","$projectName") if($selection == 2);
 		chomp($rv);
-#		print $OUT "going to exec with $0 @NEW_ARGV $rv\n" if($debug);
-#		exec "$0",@NEW_ARGV,"$rv";
-#		exit;
         processProjectArg($rv);
 	}
 }
@@ -1245,10 +1263,10 @@ print $OUT "audacity: $audacity\n" if $debug > 1;
 print $OUT "podcast: $podcast\n" if $debug > 1;
 
 # If any steps are explicity requested, set all others still enabled by default (i.e. value == 2) to disabled
-if(($audacity eq 1) ||
+if(($audacity == 1) ||
    ($mp3 == 1) ||
    ($burn == 1) ||
-   ($podcast eq 1) ||
+   ($podcast == 1) ||
    ($cdInserts == 1) ||
    ($fixLabels == 1) ||
    ($upload == 1) ||
@@ -1335,11 +1353,6 @@ unless ($manager->start) {
 
 # First get selected tracks to burn
 if ($cdInserts || $burn){
-#    my $button;
-#    ($button,@selectedTracks) = selectTracks(($burn?"burning to CD":"") . (($cdInserts and $burn)?" and ":"") . ($cdInserts?"jewelcase inserts.":"."),".*");
-#    print("button returned from selectTracks: $button\n") if($debug >1);
-#    # Pike out if user wasn't sure.
-#    exit if($button ne 1);
     # Now we have tracks selected for burning to CD, look for media and try to burn.
     my @blanks = checkBlankMedia;
     if($burn && $#blanks >= 0) {
