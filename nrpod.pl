@@ -988,6 +988,7 @@ sub createCdInserts {
 	my @items;
 	my $totalLength;
 	my @args;
+	print "in createCdInserts\n" if($debug);
     # Start with sermon title and series as the first line,
     # include a nothing entry to create a blank line between the title and the first track
     push(@items,"$sermonTitle ($sermonSeries)","");
