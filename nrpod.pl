@@ -1,20 +1,17 @@
 #!/usr/bin/perl -w
 
-# ToDo:
+# Done:
 # Done (used sox instead 1. fix concatenating mp3s with ffmpeg
 # Done 2. add GUI to allow selection of sermon tracks
 # Done 3. create selected tracks into one MP3 for sermon upload
 # Done 4. FTP sermon MP3 to server
-# Todo 5: Configure WordPress server for new sermon
 # Done 6. Change using POSIX strftime to using localtime (use Time::localtime;)
 #	$tm = localtime;
 #	printf("The current date is %04d-%02d-%02d\n", $tm->year+1900, 
 #	    ($tm->mon)+1, $tm->mday);
-# Todo 7: Move config stuff to config file
 # Done 8. Ask all questions up front
 # Done 9. Improve defaulting when new project file is created from template (either have defaults in program or fix defauts in template file)
 # Done 10. Don't die at any failed command - change to pass through if not critical.
-# 11. Add leveling/normalizing via sox
 # Done 12. FTP progress bar
 # Done 13. Add "comments" field in ID3 tags/parameters
 # Done 14. Fix location of new project file (currently defaults to .)
@@ -22,12 +19,16 @@
 # Done 16. Make default tag year this year in configureProject. (removed year from template project file)
 # Done 17. Insert date into project name if none found when creating a new project (new project date string defaults to current date or to projectDate [--project-date] if provided on command line)
 # Done 18. re-factor configureProject()
-# 19. Add support for Scripture readings
 # Done 20. Fix dialog boxes that say "Alert" - maybe add icons? (message now has two parts - text and informative-text
+
+# Todo
+# Todo 5: Configure WordPress server for new sermon
+# Todo 7: Move config stuff to config file
+# Todo 11. Add leveling/normalizing via sox
+# Todo 19. Add support for Scripture readings
 # Todo 21: check if suggested project exists or not then prompt "Create" or "Use" occordingly - then remove the need to prompt to create or not.
 # Todo 22: Force use of date for project prefix
-
-
+# Todo 23: Log all output to file and send by email
 
 # use strict;
 use XML::Smart;
@@ -138,6 +139,7 @@ my $optionsPrompt = 1;
 my $term = Term::ReadLine->new($0);
 my $OUT = $term->OUT || \*STDOUT;
 my $LOG;
+my $manager;
 
 # Check for existence of and create directory if needed
 sub checkDirectory {
@@ -771,9 +773,8 @@ sub BurnCD {
 	##############################################
 	# Burn CD using the wav files and drutil
 	##############################################
-	my $drive = shift;
-	my @selectedTracks = @_;
-	print $OUT "Burning drive $drive from $wavDirectory/burn\n" if $verbose;
+	my @blanks = @{$_[0]};
+	my @selectedTracks = @{$_[1]};
 	
 	# Remove burn directory if it already exists
 	rmdir "$wavDirectory/burn" if -d "$wavDirectory/burn";
@@ -782,29 +783,39 @@ sub BurnCD {
 	my $bn;
 	my @args;
 	# Create symlink in subdir for each selected track
+	print $OUT (caller(0))[3]." [$$] Preparing CD files to burn from $wavDirectory/burn\n" if $verbose;
+
 	foreach my $track (@selectedTracks) {
 		$bn = basename($track->{'filename'});
-		print $OUT "Creating $wavDirectory/burn/$bn -> ../$bn\n" if($debug > 1);
+		print $OUT (caller(0))[3]." [$$] Creating $wavDirectory/burn/$bn -> ../$bn\n" if($debug > 1);
 		symlink "../$bn","$wavDirectory/burn/$bn";
 	}
-	@args = ("drutil", "burn",
-		 "-audio",
-		 "-pregap",
-		 "-noverify",
-                 "-eject",
-                 "-erase", 
-                 "-drive", $drive,
-                 "$wavDirectory/burn"
+	foreach my $drive (@blanks) {
+		$manager->start and next;
+		print $OUT (caller(0))[3]." [$$] Burning drive $drive from $wavDirectory/burn\n" if $verbose;
+
+		@args = ("drutil", "burn",
+				"-audio",
+				"-pregap",
+				"-noverify",
+				"-eject",
+				"-erase", 
+				"-drive", $drive,
+				"$wavDirectory/burn"
 		);
-        print $OUT "Running: @args" if $debug >2 ;
+        print $OUT "$PID Running: @args" if $debug >2 ;
+        (my $dt = $drive) =~ s/\s/_/g;
 		dumpCommand("$projectDirectory/burncd.bash",@args);
         if(system(@args) != 0) {
             my $whatWentBang = $!;
-            message ("system call failed:",'stop',"@args: $whatWentBang");
-            $globalErrorMessages .= "system @args failed: $whatWentBang\n";
+            message ("$PID system call failed:",'stop',"@args: $whatWentBang");
+            $globalErrorMessages .= " $$ system @args failed: $whatWentBang\n";
             $globalErrorCount++;
         }
-        print "Finished Burning CD\n"  if $verbose;
+        my $me = (caller(0))[3];
+        print "$me Finished Burning CD on $drive\n"  if $verbose;
+		$manager->finish;
+	}
 }
 
 sub expandSelection {
@@ -1299,7 +1310,7 @@ if(($audacity == 1) ||
 # Begin the real work #
 #######################
 # Create a backgrounding object
-my $manager = new Parallel::ForkManager( 5 );
+$manager = new Parallel::ForkManager( 5 );
 
 # Run Audacity to capture recording
 runAudacity if $audacity;
@@ -1367,11 +1378,12 @@ if ($cdInserts || $burn){
             print join(' and ',@blanks)."\n";
         }
         # Burn tracks to each available writable media
-        foreach my $drive (@blanks) {
-			$manager->start and next;
-            BurnCD($drive, @burnSelectedTracks);
-			$manager->finish;
-        }
+        BurnCD(\@blanks,\@burnSelectedTracks);
+   #      foreach my $drive (@blanks) {
+			# $manager->start and next;
+   #          BurnCD($drive, @burnSelectedTracks);
+			# $manager->finish;
+   #      }
     } else {
         print "Not burning CDs\n" if($verbose);
     }
