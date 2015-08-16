@@ -4,3 +4,4 @@
 nrpod/.DS_Store
 
 delayed.pl
+*.log
