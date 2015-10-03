@@ -688,9 +688,12 @@ sub makeMp3s {
 	##############################################
 	# Create MP3 files from the wavs.
 	##############################################
+  # Something to use for logging inside background manager
+  my $me = (caller(0))[3];
+
 	# Open today's aup file
-    print $OUT "Making MP3s\n" if($verbose);
-	print $OUT "looking in $wavDirectory for wav files\n" if $debug>2;
+  print $OUT "$me Making MP3s\n" if($verbose);
+	print $OUT "$me looking in $wavDirectory for wav files\n" if $debug>2;
 	my $numlabels = $AUP->{project}{labeltrack}{numlabels};
 	my @llist = @{$AUP->{project}{labeltrack}{label}};
 
@@ -701,11 +704,11 @@ sub makeMp3s {
 
 	my $percent = 0;
 	my $trackPercent = 100.0/$#llist;
-	print $OUT "$trackPercent% each track\n" if $debug;
+	print $OUT "$me $trackPercent% each track\n" if $debug;
 	foreach my $track (@llist) {
 		my $title = $track->{title};
 		my $ti = $track->i()+1;
-		print $OUT "Creating MP3 of track $ti: $title\n" if $verbose;
+		print $OUT "$me Creating MP3 of track $ti: $title\n" if $verbose;
 		print $fh "$percent Creating MP3 of track $ti: $title\n" if defined $fh;
 		# $fh->flush() if defined $fh;
 
@@ -714,13 +717,13 @@ sub makeMp3s {
 		my $wavfile = "$wavDirectory/".$tiString."-$title.wav";
 		#print $OUT "$title\n" if($verbose);
 		if(-r $wavfile){
-                        convertWav2Mp3($title, $ti, $numlabels, $wavfile, "$mp3Directory/".$tiString."-$title.mp3");
+      convertWav2Mp3($title, $ti, $numlabels, $wavfile, "$mp3Directory/".$tiString."-$title.mp3");
 		}
 		$percent += $trackPercent;
-		print $OUT "$percent%\r" if $debug;
+		print $OUT "$me $percent%\r" if $debug;
 #		print $fh "$percent\n" if defined $fh;
 		}
-    print $OUT "Finished Making $numlabels MP3 files from wav files\n" if($verbose);
+    print $OUT "$me Finished Making $numlabels MP3 files from wav files\n" if($verbose);
 	### Close the filehandle to send an EOF
 	$fh->close() if defined $fh;
 }
@@ -793,7 +796,7 @@ sub BurnCD {
 	foreach my $drive (@blanks) {
 		$manager->start and next;
     my $me = (caller(0))[3];
-		print $OUT ($me." [$$] Burning drive $drive from $wavDirectory/burn\n" if $verbose;
+		print $OUT "$me [$$] Burning drive $drive from $wavDirectory/burn\n" if $verbose;
 
 		@args = ("drutil", "burn",
 				"-audio",
