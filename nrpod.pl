@@ -44,7 +44,7 @@ use Config::Simple;
 use Time::localtime;
 use IO::File;
 #use LWP;
-#use Net::FTP;
+use Net::FTP;
 use Term::ReadLine;
 use Parallel::ForkManager;
 
@@ -1139,20 +1139,72 @@ sub uploadPodcast {
 
 	my $srcFileName = basename($srcFilePath);
 
-	print $OUT "Uploading podcast ",$srcFileName,"\n";
+	print $OUT "FTP: Uploading podcast ",$srcFileName,"\n";
 
-	my @args = ("ftp", "-v", "-u");
-	push @args, "ftp://" . $ftpLogin . ":" . $ftpPassword . "\@" . $ftpHost . $ftpPath . $srcFileName, $srcFilePath;
+    # Fork a child process for Net::FTP
+    # and capture its output one char at
+    # a time
+    my $BYTES_PER_HASH = 1024;
+    my $ftp_child_pid = open(FTP, "-|") // die "can't fork: $!";
+    print "FTP: child pid: $ftp_child_pid\n";
+    if($ftp_child_pid)
+    {
+        # parent
+        print "FTP: starting parent part\n";
+        ## Open a pipe to the cocoadialog progress bar program
+        my $fh = IO::File->new("|$pathToCD progressbar --stoppable --title 'Uploading podcast file'");
+        die "no fh" unless defined $fh;
+        $fh->autoflush(1);
 
-	print $OUT "Running ", join (":",@args), "\n";
-	dumpCommand("$projectDirectory/upload.bash",@args);
-    if(system(@args) != 0) {
-        my $whatWentBang = $!;
-        message ("File upload failed \($whatWentBang\) - skipping\n",'caution',"Re-run with --upload option to try again");
-        $globalErrorMessages .= "File upload failed \($whatWentBang\)";
-        $globalErrorCount++;
-        return;
+        my $percent = 0;
+        my $count = 0;
+        my $fileSizeBytes = 1000000;
+        while (my $k = <FTP>)
+#        while (<FTP>)
+        {
+#            print $k;
+            $percent = int($count*$BYTES_PER_HASH/$fileSizeBytes);
+            print $fh "$percent\n";
+            $count++;
+        }
+        waitpid $ftp_child_pid, 0;
+        $fh->close();
+        print "FTP: ending parent part\n";
     }
+    else
+    {
+        # child
+        print "FTP: starting upload child\n";
+        my $ftp = Net::FTP->new($ftpHost, Debug => 0, Hash => \*STDOUT)
+          or die "FTP: Cannot connect to $ftpHost: $@";
+        print "FTP: connect: ", $ftp->message;
+        $ftp->login($ftpLogin,$ftpPassword)
+          or die "FTP: Cannot login ", $ftp->message;
+        print "FTP: login: ", $ftp->message;
+        $ftp->cwd($ftpPath)
+          or die "FTP: Cannot change working directory ", $ftp->message;
+        print "FTP: CWD: ", $ftp->message;
+        # $ftp->hash(\*STDOUT, $BYTES_PER_HASH);
+        # print "FTP: hash: ".$ftp->message;
+        $ftp->put($srcFilePath,"pw_test.mp3")
+          or die "FTP: put failed ", $ftp->message;
+        print "FTP: put: ", $ftp->message;
+        $ftp->quit;
+        print "FTP: ending child part\n";
+        exit;
+    }
+
+	# my @args = ("ftp", "-v", "-u");
+	# push @args, "ftp://" . $ftpLogin . ":" . $ftpPassword . "\@" . $ftpHost . $ftpPath . $srcFileName, $srcFilePath;
+	# print $OUT "Running ", join (":",@args), "\n";
+	# dumpCommand("$projectDirectory/upload.bash",@args);
+    # if(system(@args) != 0) {
+    #     my $whatWentBang = $!;
+    #     message ("File upload failed \($whatWentBang\) - skipping\n",'caution',"Re-run with --upload option to try again");
+    #     $globalErrorMessages .= "File upload failed \($whatWentBang\)";
+    #     $globalErrorCount++;
+    #     return;
+    # }
 #
 #	system(@args) == 0 or (message("File upload failed \($!\) - skipping\n",'caution',"Re-run with --upload option to try again") && return);
 
@@ -1393,7 +1445,7 @@ if ($cdInserts || $burn){
 }
 
 # Create podcast file and FTP to web server.
-unless ($manager->start) {
+#unless ($manager->start) {
 	#my $sermonRegex = $sermonRegexDefault;
 	if ($podcast) {
 	#    my $button;
@@ -1414,8 +1466,8 @@ unless ($manager->start) {
 	} else {
 		print "Not uploading podcast\n" if($verbose);
 	}
-	$manager->finish;
-}
+#	$manager->finish;
+#}
 
 print "Waiting for background processes: ",$manager->running_procs,"\n";
 $manager->wait_all_children;
