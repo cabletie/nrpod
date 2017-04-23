@@ -1,0 +1,1 @@
+"D:/Users/peter/Documents/bin/sdparm.exe" --command=sync e:

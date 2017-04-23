@@ -1,0 +1,67 @@
+Perl prerequisites
+==================
+For aup.pl, install CPAn module XML:Smart:
+
+cpan XML::Smart
+
+Get ffmpeg and lame and compile them:
+
+get ffmpeg from http://ffmpeg.org/download.html
+get lame from http://sourceforge.net/projects/lame/files/lame/3.98.4/lame-3.98.4.tar.gz/download
+
+Following from http://jungels.net/articles/ffmpeg-howto.html
+==================================
+Prerequisites: LAME
+
+MP3 is the audio codec most often used with Flash video, so you will need an MP3 encoder. FFmpeg doesn't include one, but it will use LAME, which creates good quality audio files, if you install it. Header files will be needed during the compile, so it is not enough to install a prebuilt binary using a package manager. Instead follow these directions to compile it from source:
+
+Start by creating a working directory:
+
+mkdir ~/lame
+cd ~/lame
+On a good day you can get the latest source code release of LAME from Sourceforge. The file you want will be named lame-3.97.tar.gz or something similar.
+
+If that doesn't work, do what I did and get the bleeding edge release from revision control:
+
+cvs -d:pserver:anonymous@lame.cvs.sourceforge.net:/cvsroot/lame \
+  login
+cvs -z3 \
+  -d:pserver:anonymous@lame.cvs.sourceforge.net:/cvsroot/lame \
+  co -P lame
+If you download the tar file, you need to unpack it as follows (this command is not necessary if you used CVS):
+
+tar xvzf lame-3.97.tar.gz
+After downloading and unpacking the source or checking it out from CVS, change to the main directory and then enter the three commands which are typically used to build open source projects:
+
+cd lame-3.97
+./configure
+make
+sudo make install
+Each command will take a minute or so to complete. You should keep an eye out for any errors which may occur, but installing LAME is generally trouble-free.
+
+===================================
+Building FFmpeg for Mac OS X Leopard
+
+Recent versions of FFmpeg will compile successfully on versions of OS X as far back as 10.3. Before that OS X used an older version of the C compiler which is no longer compatible with FFmpeg. It's possible to get an older version of FFmpeg running on OS X 10.2 (read on), but you may not be satisfied with its capabilities.
+
+If you have a choice it's best to run a recent version of FFmpeg, which means downloading the source code from one of the revision control systems used by the developers, or getting a nightly snapshot. Using revision control for something this simple is pretty easy, and it's a useful technique, so that's what we'll do. Recent versions of Xcode already include Subversion (a newish revision control tool which really isn't so bad), so we'll use that.
+
+First create a working directory:
+
+mkdir ~/ffmpeg
+cd ~/ffmpeg
+The up-to-date version of FFmpeg generally compiles cleanly, and that is the version you usually will want:
+
+svn checkout svn://svn.ffmpeg.org/ffmpeg/trunk ffmpeg
+cd ffmpeg
+Next, configure and make
+
+./configure --enable-libmp3lame --enable-shared \
+  --disable-mmx --arch=x86_64
+make
+sudo make install
+The --disable-mmx flag is not required on a PowerPC. If you leave it out on an Intel Mac, you will probably get a compile error, but it's worth trying since it will provide a speed boost. If you installed the AAC codecs, add the flags --enable-libfaac and --enable-libfaad.
+
+(According to a discussion on ffmpeg-user The "--arch" flag is required under Snow Leopard. Experiment.)
+
+========================================

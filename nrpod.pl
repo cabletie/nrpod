@@ -1,20 +1,17 @@
 #!/usr/bin/perl -w
 
-# ToDo:
+# Done:
 # Done (used sox instead 1. fix concatenating mp3s with ffmpeg
 # Done 2. add GUI to allow selection of sermon tracks
 # Done 3. create selected tracks into one MP3 for sermon upload
 # Done 4. FTP sermon MP3 to server
-# Todo 5: Configure WordPress server for new sermon
 # Done 6. Change using POSIX strftime to using localtime (use Time::localtime;)
 #	$tm = localtime;
-#	printf("The current date is %04d-%02d-%02d\n", $tm->year+1900, 
+#	printf("The current date is %04d-%02d-%02d\n", $tm->year+1900,
 #	    ($tm->mon)+1, $tm->mday);
-# Todo 7: Move config stuff to config file
 # Done 8. Ask all questions up front
 # Done 9. Improve defaulting when new project file is created from template (either have defaults in program or fix defauts in template file)
 # Done 10. Don't die at any failed command - change to pass through if not critical.
-# 11. Add leveling/normalizing via sox
 # Done 12. FTP progress bar
 # Done 13. Add "comments" field in ID3 tags/parameters
 # Done 14. Fix location of new project file (currently defaults to .)
@@ -22,12 +19,16 @@
 # Done 16. Make default tag year this year in configureProject. (removed year from template project file)
 # Done 17. Insert date into project name if none found when creating a new project (new project date string defaults to current date or to projectDate [--project-date] if provided on command line)
 # Done 18. re-factor configureProject()
-# 19. Add support for Scripture readings
 # Done 20. Fix dialog boxes that say "Alert" - maybe add icons? (message now has two parts - text and informative-text
+
+# Todo
+# Todo 5: Configure WordPress server for new sermon
+# Todo 7: Move config stuff to config file
+# Todo 11. Add leveling/normalizing via sox
+# Todo 19. Add support for Scripture readings
 # Todo 21: check if suggested project exists or not then prompt "Create" or "Use" occordingly - then remove the need to prompt to create or not.
 # Todo 22: Force use of date for project prefix
-
-
+# Todo 23: Log all output to file and send by email
 
 # use strict;
 use XML::Smart;
@@ -43,8 +44,9 @@ use Config::Simple;
 use Time::localtime;
 use IO::File;
 #use LWP;
-#use Net::FTP;
+use Net::FTP;
 use Term::ReadLine;
+use Parallel::ForkManager;
 
 my $debug = 0;
 
@@ -64,10 +66,10 @@ my $mp3Directory;
 my $worshipServiceSuffix = "_service";
 my $audacityProjectSuffix = "_service";
 my $audacityProjectDataDirectorySuffix = "_data";
-my $preacherDefault = "Ian Hickingbotham";
+my $preacherDefault = "Rev Andy";
 my $eventTimeDefault = "9:30am";
 my $eventTime = "";
-my $scriptureReadingsDefault = "Genesis 1:1-5;Matthew 1:1-17";
+my $scriptureReadingsDefault = "";
 my $scriptureReadings;
 my $wavFilenamePrefix;
 my $pathToFfMpeg;
@@ -137,6 +139,7 @@ my $optionsPrompt = 1;
 my $term = Term::ReadLine->new($0);
 my $OUT = $term->OUT || \*STDOUT;
 my $LOG;
+my $manager;
 
 # Check for existence of and create directory if needed
 sub checkDirectory {
@@ -186,9 +189,9 @@ sub promptUserYN {
 	my ($rv, $cdrv);
 	if($gui) {
 		$cdrv = `$pathToCD yesno-msgbox --title "nrpod" --no-newline --label "$promptString" --icon 'gear'`;
-		if($cdrv == 1) 
-			{$rv = "Y"} 
-		else 
+		if($cdrv == 1)
+			{$rv = "Y"}
+		else
 			{$rv = "N"}
 	} else { # terminal interface only
 		$rv = $term->readline("$promptString ",$defaultValue);
@@ -226,9 +229,9 @@ sub promptUserRadio {
 }
 
 sub promptUserForTracks {
-	# Window title, 
-	# label (usualy time total), 
-	# array of tracks selected by default (e.g. 1,3,5,6,7), 
+	# Window title,
+	# label (usualy time total),
+	# array of tracks selected by default (e.g. 1,3,5,6,7),
 	# array of track names/numbers and durations
 	my ($title,$label,$ref_selected,$ref_tracks) = @_;
 	my ($rv, $cdrv, @rv, $boxes, $button, @boxes);
@@ -251,7 +254,7 @@ sub promptUserForTracks {
 		# Reset selected back to nothing
 		@{$ref_selected} = ();
 		# Loop and push each selected track back into result
-		foreach my $box (@boxes) 
+		foreach my $box (@boxes)
 		{
 			push @{$ref_selected}, $boxnum if ($box == 1);
 			$boxnum++;
@@ -365,7 +368,7 @@ sub loadConfig {
             $pathToFfMpeg = "ffmpeg";
 			$pathToLame = "lame";
 			$windows = 0;
-			$pathToSox = "sox";	
+			$pathToSox = "sox";
 		}
         case /nrpod/i {
             $baseDirectory = glob("~");
@@ -403,7 +406,7 @@ sub dependenciesArePresent {
 sub setupPaths { # Usage: setupPaths projectDirectory
 	# ProjectDirectory contains the .aup file, wav directory, mp3 directory and audacity _data directory
 	# Now build the other useful path strings and check that the required ones exist
-	
+
 	# Expected path for multimedia PC at NRUC shown in comments
 	my $projectDirectory = shift;
 	# D:/users/Helix Multimedia/service_recordings/2009-07-19_service/
@@ -418,13 +421,13 @@ sub setupPaths { # Usage: setupPaths projectDirectory
 	# D:/users/Helix Multimedia/service_recordings/2009-07-19_service/2009-07-19_audacity_project.aup
 	$projectFilePath = "$projectDirectory/$projectName.aup";
 	print $OUT "projectFilePath: $projectFilePath\n" if $debug>1;
-	
+
 	# Check and create data directory if it doesn't exist
 	checkDirectory $projectDataDirectory;
-	
+
 	# Prefix for all wav files
 	$wavFilenamePrefix = "$projectName";
-	
+
 	# Locate template file
 	# D:/users/Helix Multimedia/service_recordings/template.aup
 	$projectTemplateFilename = "$baseDirectory/$recordingsDirectoryName/template.aup";
@@ -433,13 +436,13 @@ sub setupPaths { # Usage: setupPaths projectDirectory
 
 sub configureProject {
 	# Open the aup project file and get tags or set them from command prompts
-	
+
 	my $PROJECT;
 	my $tag;
 	my $safePreacher;
 	my $fileSafeRecordingName;
 	my $tagsWereModified;
-	
+
 # Todo 7: Move config stuff to config file
 	# Loads the config. file into a hash: Eventually, all config will be in here
 	#	Config::Simple->import_from('nrpod.cfg', \%Config);
@@ -488,7 +491,7 @@ sub configureProject {
 
     # Now make a path for the location of the mp3 sermon podcast file
 	$podcastFilePath = "$mp3Directory/$dateString\_$fileSafeRecordingName\_$safePreacher\.mp3";
-	
+
 	# Save Audaciy project XML to a new project file if it was created, updated or missing tags were modified
 	$PROJECT->save($projectFilePath) if ($updatetags || $tagsWereModified);
 
@@ -619,23 +622,23 @@ sub checkTracks {
 	##############################################
 	#my $wavsDirectory = fileparse($projectFilename, ".aup");
 	print $OUT "Checking labels and wav files ..." if $verbose;
-	
+
 	# Open today's aup file
 	print $OUT "checking project file: $projectFilePath\n" if $debug>1;
 	message("Failed to open Audacity project file: \n",'stop',"$projectFilePath") && exit unless -r $projectFilePath;
 
 	$AUP = XML::Smart->new($projectFilePath);
-	
+
 	# Save to a backup project file unless one already exists
 	$AUP->save($projectFilePath . ".bak") unless (-f $projectFilePath . ".bak");
-	
+
 	print $OUT "Looking in $wavDirectory for wav files\n" if $debug>2;
 	my $numlabels = $AUP->{project}{labeltrack}{numlabels};
     $numlabels = 0 unless $numlabels;
 	print $OUT "found $numlabels track labels\n" if $debug>1;
 	$errors_found++ unless $numlabels;
 	my @llist = @{$AUP->{project}{labeltrack}{label}};
-    if (!(@llist && $#llist == 0 && $llist[0]->{title} eq "")) { # Check for empty list 
+    if (!(@llist && $#llist == 0 && $llist[0]->{title} eq "")) { # Check for empty list
     #	if(@llist && $#llist > 0 && $llist[0]->{title}) {
 		foreach my $track (@llist) {
 	#need to add check for zero count tracks
@@ -685,9 +688,12 @@ sub makeMp3s {
 	##############################################
 	# Create MP3 files from the wavs.
 	##############################################
+  # Something to use for logging inside background manager
+  my $me = (caller(0))[3];
+
 	# Open today's aup file
-    print $OUT "Making MP3s\n" if($verbose);
-	print $OUT "looking in $wavDirectory for wav files\n" if $debug>2;
+  print $OUT "$me Making MP3s\n" if($verbose);
+	print $OUT "$me looking in $wavDirectory for wav files\n" if $debug>2;
 	my $numlabels = $AUP->{project}{labeltrack}{numlabels};
 	my @llist = @{$AUP->{project}{labeltrack}{label}};
 
@@ -698,11 +704,11 @@ sub makeMp3s {
 
 	my $percent = 0;
 	my $trackPercent = 100.0/$#llist;
-	print $OUT "$trackPercent% each track\n" if $debug;
+	print $OUT "$me $trackPercent% each track\n" if $debug;
 	foreach my $track (@llist) {
 		my $title = $track->{title};
 		my $ti = $track->i()+1;
-		print $OUT "Creating MP3 of track $ti: $title\n" if $verbose;
+		print $OUT "$me Creating MP3 of track $ti: $title\n" if $verbose;
 		print $fh "$percent Creating MP3 of track $ti: $title\n" if defined $fh;
 		# $fh->flush() if defined $fh;
 
@@ -711,13 +717,13 @@ sub makeMp3s {
 		my $wavfile = "$wavDirectory/".$tiString."-$title.wav";
 		#print $OUT "$title\n" if($verbose);
 		if(-r $wavfile){
-                        convertWav2Mp3($title, $ti, $numlabels, $wavfile, "$mp3Directory/".$tiString."-$title.mp3");
+      convertWav2Mp3($title, $ti, $numlabels, $wavfile, "$mp3Directory/".$tiString."-$title.mp3");
 		}
 		$percent += $trackPercent;
-		print $OUT "$percent%\r" if $debug;
+		print $OUT "$me $percent%\r" if $debug;
 #		print $fh "$percent\n" if defined $fh;
 		}
-    print $OUT "Finished Making $numlabels MP3 files from wav files\n" if($verbose);
+    print $OUT "$me Finished Making $numlabels MP3 files from wav files\n" if($verbose);
 	### Close the filehandle to send an EOF
 	$fh->close() if defined $fh;
 }
@@ -727,7 +733,7 @@ sub checkBlankMedia {
     print $OUT "Checking for drives to use\n" if $debug >1;
 	print $OUT "Looking for CD-R(W) drives and blank disks: running \"drutil list\"\n" if $debug > 2;
     open (DRUTIL, "drutil list |") || die "can't fork drutil: $!\n";
-    while (<DRUTIL>) 
+    while (<DRUTIL>)
     {
         print if $debug > 2;
         # scan lines for "CD-Write: -R"
@@ -770,10 +776,9 @@ sub BurnCD {
 	##############################################
 	# Burn CD using the wav files and drutil
 	##############################################
-	my $drive = shift;
-	my @selectedTracks = @_;
-	print $OUT "Burning drive $drive from $wavDirectory/burn\n" if $verbose;
-	
+	my @blanks = @{$_[0]};
+	my @selectedTracks = @{$_[1]};
+
 	# Remove burn directory if it already exists
 	rmdir "$wavDirectory/burn" if -d "$wavDirectory/burn";
 	# Create burn directory for symlinks
@@ -781,29 +786,39 @@ sub BurnCD {
 	my $bn;
 	my @args;
 	# Create symlink in subdir for each selected track
+	print $OUT (caller(0))[3]." [$$] Preparing CD files to burn from $wavDirectory/burn\n" if $verbose;
+
 	foreach my $track (@selectedTracks) {
 		$bn = basename($track->{'filename'});
-		print $OUT "Creating $wavDirectory/burn/$bn -> ../$bn\n" if($debug > 1);
+		print $OUT (caller(0))[3]." [$$] Creating $wavDirectory/burn/$bn -> ../$bn\n" if($debug > 1);
 		symlink "../$bn","$wavDirectory/burn/$bn";
 	}
-	@args = ("drutil", "burn",
-		 "-audio",
-		 "-pregap",
-		 "-noverify",
-                 "-eject",
-                 "-erase", 
-                 "-drive", $drive,
-                 "$wavDirectory/burn"
+	foreach my $drive (@blanks) {
+		$manager->start and next;
+    my $me = (caller(0))[3];
+		print $OUT "$me [$$] Burning drive $drive from $wavDirectory/burn\n" if $verbose;
+
+		@args = ("drutil", "burn",
+				"-audio",
+				"-pregap",
+				"-noverify",
+				"-eject",
+				"-erase",
+				"-drive", $drive,
+				"$wavDirectory/burn"
 		);
-        print $OUT "Running: @args" if $debug >2 ;
-		dumpCommand("$projectDirectory/burncd.bash",@args);
-        if(system(@args) != 0) {
-            my $whatWentBang = $!;
-            message ("system call failed:",'stop',"@args: $whatWentBang");
-            $globalErrorMessages .= "system @args failed: $whatWentBang\n";
-            $globalErrorCount++;
-        }
-        print "Finished Burning CD\n"  if $verbose;
+    print $OUT "$me $PID Running: @args" if $debug >2 ;
+    (my $dt = $drive) =~ s/\s/_/g;
+    dumpCommand("$projectDirectory/burncd.bash",@args);
+    if(system(@args) != 0) {
+        my $whatWentBang = $!;
+        message ("$PID system call failed:",'stop',"@args: $whatWentBang");
+        $globalErrorMessages .= " $$ system @args failed: $whatWentBang\n";
+        $globalErrorCount++;
+    }
+    print "$me Finished Burning CD on $drive\n"  if $verbose;
+		$manager->finish;
+	}
 }
 
 sub expandSelection {
@@ -811,7 +826,7 @@ sub expandSelection {
     my $min = shift;
     my $max = shift;
 	my @result;
-   
+
 	print "min: $min max: $max\n" if($debug > 2);
 
 	$range =~ s/[^\d\-\,]//gs; #remove extraneous characters
@@ -907,7 +922,7 @@ sub selectTracks {
 			my %checkBoxStrings = ();
 			my @checkBoxStrings = ();
 			# Reset totals
-			$total_length = 0; 
+			$total_length = 0;
 			$selected_total = 0;
 			# Construct checkbox label strings for each wav filename and track time
 			foreach my $file (@filelist) {
@@ -953,13 +968,13 @@ sub selectTracks {
 				sprintf("******** WARNING WILL ROBINSON DANGER DANGER ******\nTotal time exceeds 80min: %s",
 					 sec2Hms($selected_total)),
 				"Cool, continue",
-				"I'll try that again") 
+				"I'll try that again")
 				if ($selected_total > 80*60);
 		} until $button == 1;
 	} else {
         # Always return button == 1
         $button = 1;
-		# Iterate over them, printing the basename and saving and summing the recording time	
+		# Iterate over them, printing the basename and saving and summing the recording time
 		do {
 			$selected_total = 0;
 			foreach my $file (@filelist) {
@@ -989,8 +1004,8 @@ sub selectTracks {
 				$selected_total += $track_lengths{$filelist[$selection-1]};
 			}
 			print $OUT "\nTotal time: ", sec2Hms $selected_total, "\n";
-			print $OUT "\n******** WARNING WILL ROBINSON DANGER DANGER ******\nTotal time exceeds 80min: ", sec2Hms $selected_total, "\n" 
-				if ($selected_total > 80*60);		
+			print $OUT "\n******** WARNING WILL ROBINSON DANGER DANGER ******\nTotal time exceeds 80min: ", sec2Hms $selected_total, "\n"
+				if ($selected_total > 80*60);
 		} until promptUser("\nAre these selections correct?","Yes") =~ /^Y/i;
 	}
 	return $button,@result;
@@ -1003,6 +1018,7 @@ sub createCdInserts {
 	my @items;
 	my $totalLength;
 	my @args;
+	print "in createCdInserts\n" if($debug);
     # Start with sermon title and series as the first line,
     # include a nothing entry to create a blank line between the title and the first track
     push(@items,"$sermonTitle ($sermonSeries)","");
@@ -1120,26 +1136,78 @@ sub uploadPodcast {
 	my $ftpPath = "/httpdocs/wp-content/uploads/sermon-manager-import/";
 	my $ftpLogin = "nruc";
 	my $ftpPassword = "steveoc123";
-	
-	my $srcFileName = basename($srcFilePath);
-	
-	print $OUT "Uploading podcast ",$srcFileName,"\n";
 
-	my @args = ("ftp", "-v", "-u");
-	push @args, "ftp://" . $ftpLogin . ":" . $ftpPassword . "\@" . $ftpHost . $ftpPath . $srcFileName, $srcFilePath;
-	
-	print $OUT "Running ", join (":",@args), "\n";
-	dumpCommand("$projectDirectory/upload.bash",@args);
-    if(system(@args) != 0) {
-        my $whatWentBang = $!;
-        message ("File upload failed \($whatWentBang\) - skipping\n",'caution',"Re-run with --upload option to try again");
-        $globalErrorMessages .= "File upload failed \($whatWentBang\)";
-        $globalErrorCount++;
-        return;
+	my $srcFileName = basename($srcFilePath);
+
+	print $OUT "FTP: Uploading podcast ",$srcFileName,"\n";
+
+    # Fork a child process for Net::FTP
+    # and capture its output one char at
+    # a time
+    my $BYTES_PER_HASH = 1024;
+    my $ftp_child_pid = open(FTP, "-|") // die "can't fork: $!";
+    print "FTP: child pid: $ftp_child_pid\n";
+    if($ftp_child_pid)
+    {
+        # parent
+        print "FTP: starting parent part\n";
+        ## Open a pipe to the cocoadialog progress bar program
+        my $fh = IO::File->new("|$pathToCD progressbar --stoppable --title 'Uploading podcast file'");
+        die "no fh" unless defined $fh;
+        $fh->autoflush(1);
+
+        my $percent = 0;
+        my $count = 0;
+        my $fileSizeBytes = 1000000;
+        while (my $k = <FTP>)
+#        while (<FTP>)
+        {
+#            print $k;
+            $percent = int($count*$BYTES_PER_HASH/$fileSizeBytes);
+            print $fh "$percent\n";
+            $count++;
+        }
+        waitpid $ftp_child_pid, 0;
+        $fh->close();
+        print "FTP: ending parent part\n";
     }
+    else
+    {
+        # child
+        print "FTP: starting upload child\n";
+        my $ftp = Net::FTP->new($ftpHost, Debug => 0, Hash => \*STDOUT)
+          or die "FTP: Cannot connect to $ftpHost: $@";
+        print "FTP: connect: ", $ftp->message;
+        $ftp->login($ftpLogin,$ftpPassword)
+          or die "FTP: Cannot login ", $ftp->message;
+        print "FTP: login: ", $ftp->message;
+        $ftp->cwd($ftpPath)
+          or die "FTP: Cannot change working directory ", $ftp->message;
+        print "FTP: CWD: ", $ftp->message;
+        # $ftp->hash(\*STDOUT, $BYTES_PER_HASH);
+        # print "FTP: hash: ".$ftp->message;
+        $ftp->put($srcFilePath,"pw_test.mp3")
+          or die "FTP: put failed ", $ftp->message;
+        print "FTP: put: ", $ftp->message;
+        $ftp->quit;
+        print "FTP: ending child part\n";
+        exit;
+    }
+
+	# my @args = ("ftp", "-v", "-u");
+	# push @args, "ftp://" . $ftpLogin . ":" . $ftpPassword . "\@" . $ftpHost . $ftpPath . $srcFileName, $srcFilePath;
+	# print $OUT "Running ", join (":",@args), "\n";
+	# dumpCommand("$projectDirectory/upload.bash",@args);
+    # if(system(@args) != 0) {
+    #     my $whatWentBang = $!;
+    #     message ("File upload failed \($whatWentBang\) - skipping\n",'caution',"Re-run with --upload option to try again");
+    #     $globalErrorMessages .= "File upload failed \($whatWentBang\)";
+    #     $globalErrorCount++;
+    #     return;
+    # }
 #
 #	system(@args) == 0 or (message("File upload failed \($!\) - skipping\n",'caution',"Re-run with --upload option to try again") && return);
-	
+
 	message("Done uploading podcast\n",'network',"You will have to manually create sermon through wp-admin") if($verbose);
 }
 
@@ -1296,6 +1364,8 @@ if(($audacity == 1) ||
 #######################
 # Begin the real work #
 #######################
+# Create a backgrounding object
+$manager = new Parallel::ForkManager( 5 );
 
 # Run Audacity to capture recording
 runAudacity if $audacity;
@@ -1334,54 +1404,73 @@ $messageText .= "When ready, click 'OK' and go get a cup of coffee.\n";
 longMessage ("Ready to go","$messageText");
 
 # Create individual mp3 files from wav files
-makeMp3s if($mp3);
+unless ($manager->start) {
+	makeMp3s if($mp3);
+	$manager->finish;
+}
 
 # Burn CDs
+unless ($manager->start) {
+	# Assume CD labels are only wanted when CDs are burned
+	createCdInserts(@burnSelectedTracks) if $cdInserts;
+	printCdInserts() if ($printCdInserts and $cdInserts);
+	$manager->finish;
+}
+
 # First get selected tracks to burn
 if ($cdInserts || $burn){
     # Now we have tracks selected for burning to CD, look for media and try to burn.
-    if($burn) {
-        my @blanks = checkBlankMedia;
-        while($#blanks < 0 &&
-            # No burnable disks found ask what to do
-           promptUserOKCan ("No blank, writable CDs found\nTry again or Skip burning?","Try Again","Skip") == 1) {
-            @blanks = checkBlankMedia;
-        }
+    my @blanks = checkBlankMedia;
+    if($burn && $#blanks >= 0) {
+        #while($#blanks < 0 &&
+        #    # No burnable disks found ask what to do
+        #   promptUserOKCan ("No blank, writable CDs found\nTry again or Skip burning?","Try Again","Skip") == 1) {
+        #    @blanks = checkBlankMedia;
+        #}
         if ($debug) {
             my $plural = $#blanks > 0?'s ':' ';
             print "Available blank, writable CD".$plural."in drive".$plural;
             print join(' and ',@blanks)."\n";
         }
         # Burn tracks to each available writable media
-        foreach my $drive (@blanks) {
-            BurnCD($drive, @burnSelectedTracks);
-        }
+        BurnCD(\@blanks,\@burnSelectedTracks);
+   #      foreach my $drive (@blanks) {
+			# $manager->start and next;
+   #          BurnCD($drive, @burnSelectedTracks);
+			# $manager->finish;
+   #      }
     } else {
         print "Not burning CDs\n" if($verbose);
     }
 }
-# Assume CD labels are only wanted when CDs are burned
-createCdInserts(@burnSelectedTracks) if $cdInserts;
-printCdInserts() if ($printCdInserts and $cdInserts);
 
 # Create podcast file and FTP to web server.
-#my $sermonRegex = $sermonRegexDefault;
-if ($podcast) {
-	createPodcast(@podcastSelectedTracks);
-} else { 
-	print $OUT "Not creating podcast\n" if($verbose);
-}
-
-# Upload podcast unless noupload or podcastFilePath doesn't exist
-if($upload) { # same as --ftp option
-	if(-r $podcastFilePath) {
-		uploadPodcast($podcastFilePath);
+#unless ($manager->start) {
+	#my $sermonRegex = $sermonRegexDefault;
+	if ($podcast) {
+	#    my $button;
+	#	($button,@selectedTracks) = selectTracks("sermon podcast.",$sermonRegex);
+	#    (print $OUT "Quitting from select podcast tracks\n" && exit) if($button ne 1);
+		createPodcast(@podcastSelectedTracks);
 	} else {
-		message("Can't upload: podcast MP3 file not found",'stop',"$podcastFilePath");
+		print $OUT "Not creating podcast\n" if($verbose);
 	}
-} else {
-	print "Not uploading podcast\n" if($verbose);
-}
+
+	# Upload podcast unless noupload or podcastFilePath doesn't exist
+	if($upload) { # same as --ftp option
+		if(-r $podcastFilePath) {
+			uploadPodcast($podcastFilePath);
+		} else {
+			message("Can't upload: podcast MP3 file not found",'stop',"$podcastFilePath");
+		}
+	} else {
+		print "Not uploading podcast\n" if($verbose);
+	}
+#	$manager->finish;
+#}
+
+print "Waiting for background processes: ",$manager->running_procs,"\n";
+$manager->wait_all_children;
 
 longMessage("Finished with $globalErrorCount errors\n","$globalErrorMessages");
 exit;
@@ -1399,7 +1488,7 @@ nrpod [options] [project name]
    --help               brief help message
    --man                full documentation
    --project-date YYYY-MM-DD
-                        specify date for project files and labels (ignored if 
+                        specify date for project files and labels (ignored if
                         project name already contains a valid date string)
 
  Optons - process steps:
@@ -1419,13 +1508,13 @@ nrpod [options] [project name]
    --debug 				Turns on debugging. Can be specified mutiple times
                         to increase verbosity.
    --[no]verbose		Turns on commenting on what's going on.
-   --fix-labels        Repair labels in aup file so that no non-zero time labels 
+   --fix-labels        Repair labels in aup file so that no non-zero time labels
    						are present (prevents incomplete tracks from being created)
    --interactive       Asks all option questions interactively (not yet operational)
    --updatetags        Requests confirmation of all tags in aup project file.
                        This is also what happens when a new file is created.
    --options-prompt		Prompt for options in gui
-	
+
 By default all process steps are executed.
 Specifying the [no] prefix to that step prevents it from running.
 For all process step related options, specifying any one in the positive disables all other steps unless they are also specificed in the positive as an option.
