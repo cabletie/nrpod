@@ -487,7 +487,7 @@ sub configureProject {
     $tagsWereModified |= configureID3Tag($PROJECT,\$sermonTitle,'SERMONTITLE',"", "Message title?");
     $tagsWereModified |= configureID3Tag($PROJECT,\$sermonSeries,'SERIES',$sermonSeriesDefault,"Series?");
     $tagsWereModified |= configureID3Tag($PROJECT,\$sermonDescription,'COMMENTS',"", "Sermon description?");
-    $tagsWereModified |= configureID3Tag($PROJECT,\$scriptureReadings,'NRSCRIPTURE',$scriptureReadingsDefault, "Scripture readings?");
+    $tagsWereModified |= configureID3Tag($PROJECT,\$scriptureReadings,'NRSCRIPTURE',$scriptureReadingsDefault, "Scripture readings (e.g. Genesis 1:1-5;Matthew 1:1-17)");
 
     # Now make a path for the location of the mp3 sermon podcast file
 	$podcastFilePath = "$mp3Directory/$dateString\_$fileSafeRecordingName\_$safePreacher\.mp3";
