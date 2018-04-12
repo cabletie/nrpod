@@ -1132,10 +1132,13 @@ sub createPodcast {
 
 sub uploadPodcast {
 	my $srcFilePath = shift;
-	my $ftpHost = "nruc.org.au";
+	my $ftpHost = "cp464.ezyreg.com";
+	# my $ftpHost = "nruc.org.au";
 	my $ftpPath = "/httpdocs/wp-content/uploads/sermon-manager-import/";
-	my $ftpLogin = "nruc";
-	my $ftpPassword = "steveoc123";
+	my $ftpLogin = "nrucorg\@nruc.org.au";
+	# my $ftpLogin = "nruc";
+	my $ftpPassword = "Y7465mdC3y";
+	# my $ftpPassword = "steveoc123";
 
 	my $srcFileName = basename($srcFilePath);
 
