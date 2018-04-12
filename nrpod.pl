@@ -362,8 +362,9 @@ sub loadConfig {
 	$pathToCD = "/Applications/CocoaDialog.app/Contents/MacOS/CocoaDialog";
 
     switch ($hostname) {
-        case /tilaph/i {
-            $baseDirectory = "/Users/peter/Documents/Audacity";
+        case /tilaph.local/i {
+            # $baseDirectory = "/Users/peter/Documents/Audacity";
+            $baseDirectory = "/Volumes/MacintoshHD/Users/peter/Documents/Audacity";
 			$pathToAudacity = "/Applications/Audacity/Audacity.app";
             $pathToFfMpeg = "ffmpeg";
 			$pathToLame = "lame";
