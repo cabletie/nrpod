@@ -4,5 +4,5 @@
 nrpod/.DS_Store
 
 delayed.pl
-ftp.log
 pw_test.null
+*.log
