@@ -1190,6 +1190,7 @@ sub uploadPodcast {
         print "FTP: CWD: ", $ftp->message;
         # $ftp->hash(\*STDOUT, $BYTES_PER_HASH);
         # print "FTP: hash: ".$ftp->message;
+		$ftp->binary();
         $ftp->put($srcFilePath,$srcFileName)
           or die "FTP: put failed ", $ftp->message;
         print "FTP: put: ", $ftp->message;
